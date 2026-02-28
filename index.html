@@ -694,15 +694,49 @@ async function showScoreCard(s, rank) {
   sx.fillStyle = '#ff003388';
   sx.textAlign = 'center';
   sx.fillText('Play: t.me/NGMI_TON_BOT', 200, 292);
-  // Convert and open
-  sc.toBlob(blob => {
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-  }, 'image/png');
-  // Telegram inline share
-  try {
-    if (tg?.switchInlineQuery) tg.switchInlineQuery(`I scored ${s} pts in $NGMI! 🐸`);
-  } catch(e) {}
+  // Show card in-app modal (works in Telegram Mini App)
+  const dataUrl = sc.toDataURL('image/png');
+
+  // Build modal
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;';
+
+  const img = document.createElement('img');
+  img.src = dataUrl;
+  img.style.cssText = 'max-width:90%;border:2px solid #ff0033;box-shadow:0 0 30px #ff003366;';
+
+  const hint = document.createElement('div');
+  hint.textContent = 'PRESS & HOLD IMAGE TO SAVE';
+  hint.style.cssText = "font-family:'VT323',monospace;font-size:1rem;color:#ff003388;letter-spacing:2px;";
+
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:12px;';
+
+  const shareBtn = document.createElement('button');
+  shareBtn.textContent = '[ SHARE ]';
+  shareBtn.style.cssText = "background:transparent;border:2px solid #ff0033;color:#ff0033;font-family:'VT323',monospace;font-size:1.4rem;padding:6px 24px;cursor:pointer;";
+  shareBtn.onclick = () => {
+    const shareText = `I scored ${s} pts in NGMI Chart Surfer! Can you beat me? Play: https://t.me/NGMI_TON_BOT`;
+    try {
+      if (tg?.openTelegramLink) {
+        tg.openTelegramLink(`https://t.me/share/url?url=https://t.me/NGMI_TON_BOT&text=${encodeURIComponent(`I scored ${s} pts in NGMI! Can you beat me?`)}`);
+      } else if (navigator.share) {
+        navigator.share({ title: 'NGMI Score', text: shareText, url: 'https://t.me/NGMI_TON_BOT' });
+      }
+    } catch(e) {}
+  };
+
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '[ CLOSE ]';
+  closeBtn.style.cssText = "background:transparent;border:2px solid #ff003366;color:#ff003388;font-family:'VT323',monospace;font-size:1.4rem;padding:6px 24px;cursor:pointer;";
+  closeBtn.onclick = () => document.body.removeChild(modal);
+
+  btnRow.appendChild(shareBtn);
+  btnRow.appendChild(closeBtn);
+  modal.appendChild(img);
+  modal.appendChild(hint);
+  modal.appendChild(btnRow);
+  document.body.appendChild(modal);
 }
 
 // ─── DAY/NIGHT ───────────────────────────────────────────────────────────────
