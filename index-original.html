@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>$NGMI — Chart Surfer</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -15,14 +14,14 @@ body { background: #000; color: #fff; font-family: 'Share Tech Mono', monospace;
 #game-wrap { position: relative; width: 100%; max-width: 700px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px; height: 100vh; justify-content: center; }
 #header { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0 4px; }
 #title { font-family: 'VT323', monospace; font-size: 2.2rem; color: #ff0033; text-shadow: 0 0 20px #ff003388, 2px 2px 0 #aa0022; letter-spacing: 2px; }
-#score-board { display: flex; gap: 16px; font-size: 0.8rem; color: #aaaaaa; }
-#score-board span { color: #ffffff; font-size: 0.95rem; }
+#score-board { display: flex; gap: 16px; font-size: 0.8rem; color: #ff003399; }
+#score-board span { color: #ff0033; font-size: 0.95rem; }
 #canvas-wrap { position: relative; width: 100%; border: 1px solid #ff003444; box-shadow: 0 0 30px #ff003322, inset 0 0 20px #0a0000; }
 canvas { display: block; width: 100%; background: #050000; }
-#controls { font-size: 0.7rem; color: #666666; letter-spacing: 2px; }
+#controls { font-size: 0.7rem; color: #ff003355; letter-spacing: 2px; }
 #overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 0; background: rgba(0,0,0,0.97); z-index: 10; padding: 10px 8px; overflow-y: auto; }
 #overlay h1 { font-family: 'VT323', monospace; font-size: 3.2rem; color: #ff0033; text-shadow: 0 0 30px #ff0033; animation: flicker 2.5s infinite; }
-.sub { font-size: 0.75rem; color: #888888; letter-spacing: 3px; text-align: center; line-height: 1.9; }
+.sub { font-size: 0.75rem; color: #ff003377; letter-spacing: 3px; text-align: center; line-height: 1.9; }
 .big-score { font-family: 'VT323', monospace; font-size: 2.8rem; color: #fff; text-shadow: 0 0 10px #fff5; }
 .verdict { font-family: 'VT323', monospace; font-size: 1.5rem; color: #ffaa00; text-shadow: 0 0 10px #ffaa0066; }
 .rank-badge { font-family: 'VT323', monospace; font-size: 1.1rem; color: #00ff66; letter-spacing: 2px; }
@@ -44,17 +43,20 @@ canvas { display: block; width: 100%; background: #050000; }
 .lb-tab.tab-clans.active { border-color: #00ccff; color: #00eeff; background: #00ccff22; }
 .btn-card { border-color: #00ff66aa; color: #00ff66bb; font-size: 1.2rem; padding: 4px 24px; }
 .btn-card:hover, .btn-card:active { background: #00ff6622; color: #00ff66; }
-
+.btn-holder { border-color: #00ccff88; color: #00ccffaa; font-size: 1.2rem; padding: 4px 24px; }
+.btn-holder:hover, .btn-holder:active { background: #00ccff22; color: #00ccff; box-shadow: 0 0 20px #00ccff; }
+.btn-holder.verified { border-color: #00ff6688; color: #00ff66aa; }
 .btn-skins { border-color: #cc44ff88; color: #cc44ffaa; font-size: 1.2rem; padding: 4px 24px; }
 .btn-skins:hover, .btn-skins:active { background: #cc44ff22; color: #cc44ff; }
-
+.holder-bonus-text { font-size: 0.65rem; color: #00ccff55; letter-spacing: 2px; text-align: center; }
+.holder-bonus-text.verified { color: #00ff6688; }
 #lb-wrap { width: 100%; flex: 1; overflow-y: auto; border: 1px solid #ff003333; background: #0a0000; }
 .screen { display: flex; flex-direction: column; width: 100%; height: 100%; }
 .screen-top { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 4px; flex-shrink: 0; }
 .screen-mid { display: flex; flex-direction: column; align-items: center; gap: 10px; flex: 1; justify-content: center; padding: 8px 0; }
 .screen-bot { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-bottom: 4px; width: 100%; flex-shrink: 0; }
 .bottom-nav { display: flex; flex-direction: row; justify-content: space-around; width: 100%; border-top: 1px solid #ff003333; padding-top: 8px; gap: 2px; }
-.nav-btn { background: transparent; border: 1px solid #333333; color: #888888; font-family: 'VT323', monospace; font-size: 0.65rem; padding: 6px 2px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; letter-spacing: 1px; transition: all 0.15s; }
+.nav-btn { background: transparent; border: 1px solid #ff003333; color: #ff003366; font-family: 'VT323', monospace; font-size: 0.65rem; padding: 6px 2px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; letter-spacing: 1px; transition: all 0.15s; }
 .nav-btn span:first-child { font-size: 1.3rem; line-height: 1; }
 .nav-btn:hover, .nav-btn:active { border-color: #ff0033; color: #ff0033; background: #ff003311; }
 .screen-scroll { flex: 1; overflow-y: auto; width: 100%; min-height: 0; }
@@ -64,16 +66,16 @@ canvas { display: block; width: 100%; background: #050000; }
 #lb-wrap::-webkit-scrollbar { width: 4px; }
 #lb-wrap::-webkit-scrollbar-track { background: #000; }
 #lb-wrap::-webkit-scrollbar-thumb { background: #ff003344; }
-.lb-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; font-size: 0.75rem; border-bottom: 1px solid #1a1a1a; color: #888888; }
+.lb-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; font-size: 0.75rem; border-bottom: 1px solid #ff000a; color: #ff003388; }
 .lb-row:first-child { color: #ffaa00; }
 .lb-row:nth-child(2) { color: #aaaaaa; }
 .lb-row:nth-child(3) { color: #cc6622; }
 .lb-row .rank { width: 24px; color: inherit; }
-.lb-row .name { flex: 1; padding: 0 8px; color: #cccccc; }
+.lb-row .name { flex: 1; padding: 0 8px; color: #fff8; }
 .lb-row .pts { color: inherit; }
 .lb-row.me { background: #ff003311; }
 .lb-row.me .name { color: #ff0033; }
-.lb-loading { text-align: center; padding: 12px; font-size: 0.7rem; color: #555555; letter-spacing: 2px; }
+.lb-loading { text-align: center; padding: 12px; font-size: 0.7rem; color: #ff003344; letter-spacing: 2px; }
 .lb-tabs { display:flex; gap:4px; margin-bottom:4px; }
 .lb-tab { background:transparent; border:1px solid #ff003355; color:#ff003366; font-family:'VT323',monospace; font-size:0.95rem; padding:2px 10px; cursor:pointer; transition:all 0.15s; letter-spacing:1px; }
 .lb-tab.active { border-color:#ff0033; color:#ff0033; background:#ff003322; }
@@ -88,14 +90,14 @@ canvas { display: block; width: 100%; background: #050000; }
 .skin-dot { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; box-shadow: 0 0 8px transparent; }
 .skin-dot.active { border-color: #fff; box-shadow: 0 0 12px #fff8; }
 .skin-dot.locked { opacity: 0.3; cursor: not-allowed; filter: grayscale(1); }
-.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; font-size: 0.8rem; color: #888888; width: 80%; margin: 4px 0; }
-.stats-grid .stat-label { color: #666666; font-size: 0.7rem; letter-spacing: 2px; }
-.stats-grid .stat-val { color: #ffffff; font-family: 'VT323', monospace; font-size: 1.3rem; }
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; font-size: 0.8rem; color: #ff003388; width: 80%; margin: 4px 0; }
+.stats-grid .stat-label { color: #ff003355; font-size: 0.7rem; letter-spacing: 2px; }
+.stats-grid .stat-val { color: #ff0033; font-family: 'VT323', monospace; font-size: 1.3rem; }
 .achieve-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; width:90%; max-height:180px; overflow-y:auto; }
-.achieve-item { padding:4px 8px; border:1px solid #2a2a2a; font-size:0.65rem; line-height:1.4; color:#777777; }
+.achieve-item { padding:4px 8px; border:1px solid #ff003322; font-size:0.65rem; line-height:1.4; }
 .achieve-item.done { border-color:#9900cc55; color:#cc44ffaa; }
 .achieve-item.done .a-name { color:#cc44ff; }
-.achieve-item .a-name { font-family:'VT323',monospace; font-size:0.9rem; color:#888888; }
+.achieve-item .a-name { font-family:'VT323',monospace; font-size:0.9rem; color:#ff003355; }
 .streak-badge { font-family:'VT323',monospace; font-size:1.1rem; color:#ff6600; text-shadow:0 0 8px #ff660088; letter-spacing:2px; }
 .referral-info { font-size:0.65rem; color:#00ff6644; letter-spacing:1px; text-align:center; max-width:90%; }
 .referral-info span { color:#00ff66; }
@@ -134,10 +136,11 @@ canvas { display: block; width: 100%; background: #050000; }
         <div class="bottom-nav">
           <button class="nav-btn" onclick="showStats()"><span>📊</span><span>STATS</span></button>
           <button class="nav-btn" onclick="showLeaderboard('alltime')"><span>🏆</span><span>BOARD</span></button>
-          <button class="nav-btn" onclick="showPrizes()"><span>💰</span><span>PRIZES</span></button>
           <button class="nav-btn" onclick="showClanModal()"><span>⚔️</span><span>CLAN</span></button>
           <button class="nav-btn" onclick="showSkinShop()"><span>🎨</span><span>SKINS</span></button>
+          <button class="nav-btn" onclick="showAchievements()"><span>🏅</span><span>BADGES</span></button>
         </div>
+        <div id="holder-bonus-display" style="margin-top:4px"></div>
         <div id="referral-display"></div>
       </div>
     </div>
@@ -235,9 +238,6 @@ const SFX = {
   boss()     { playTone(110,'sawtooth',0.4,0.25,55); playNoise(0.2,0.1); },
   streak()   { [440,554,659,880].forEach((f,i)=>setTimeout(()=>playTone(f,'square',0.08,0.12),i*50)); },
   achieve()  { playTone(600,'square',0.05,0.12); setTimeout(()=>playTone(800,'square',0.05,0.12),80); setTimeout(()=>playTone(1000,'square',0.08,0.15),160); },
-  nearMiss() { playTone(800,'sine',0.06,0.12,1400); },
-  magnet()   { [300,400,500,700].forEach((f,i)=>setTimeout(()=>playTone(f,'sine',0.07,0.09,f*1.3),i*30)); },
-  comboSfx(n){ playTone(380+n*50,'square',0.05,0.09); },
 };
 
 // ─── CHIPTUNE MUSIC ──────────────────────────────────────────────────────────
@@ -265,32 +265,13 @@ function playMusicBeat() {
   const nextTempo = turboFrames > 0 ? 110 : 140;
   musicTimer = setTimeout(playMusicBeat, nextTempo);
 }
-const MELODY = [523,659,784,659,523,440,494,523];
-let melodyIndex = 0, melodyTimer = null;
-function playMelodyBeat() {
-  if (!actx || !audioReady || !musicPlaying || muted) return;
-  if (melodyIndex % 2 === 0) {
-    const f = MELODY[(melodyIndex/2) % MELODY.length];
-    try {
-      const osc = actx.createOscillator(), g = actx.createGain();
-      osc.connect(g); g.connect(actx.destination);
-      osc.type = 'triangle'; osc.frequency.value = f;
-      g.gain.setValueAtTime(0.04, actx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.25);
-      osc.start(actx.currentTime); osc.stop(actx.currentTime + 0.25);
-    } catch(e) {}
-  }
-  melodyIndex++;
-  melodyTimer = setTimeout(playMelodyBeat, turboFrames > 0 ? 110 : 140);
-}
 function startMusic() {
   if (musicPlaying || muted) return;
-  musicPlaying = true; musicBeatIndex = 0; melodyIndex = 0; playMusicBeat(); playMelodyBeat();
+  musicPlaying = true; musicBeatIndex = 0; playMusicBeat();
 }
 function stopMusic() {
   musicPlaying = false;
   if (musicTimer) { clearTimeout(musicTimer); musicTimer = null; }
-  if (melodyTimer) { clearTimeout(melodyTimer); melodyTimer = null; }
 }
 
 // ─── SEEDED RNG ──────────────────────────────────────────────────────────────
@@ -367,16 +348,6 @@ const ACHIEVEMENT_DEFS = [
   { id:'ngmi_god',       name:'NGMI God',       desc:'Score 200+ in one run' },
   { id:'daily_grinder',  name:'Daily Grinder',  desc:'Complete 7 daily challenges' },
   { id:'streak_lord',    name:'Streak Lord',    desc:'Reach a 7-day streak' },
-  { id:'near_miss_pro',  name:'Near Miss Pro',  desc:'Get 10 near misses in one run' },
-  { id:'magnet_master',  name:'Magnet Master',  desc:'Collect 20 coins with magnet in one run' },
-  { id:'fomo_dodger',    name:'FOMO Dodger',    desc:'Dodge 5 FOMO obstacles in one run' },
-  { id:'perfectionist',  name:'Perfectionist',  desc:'Score 50+ without any power-ups' },
-  { id:'rich_frog',      name:'Rich Frog',      desc:'Collect 200 coins total' },
-  { id:'no_sleep',       name:'No Sleep',       desc:'Play 20 games total' },
-  { id:'ngmi_whale',     name:'NGMI Whale',     desc:'Score 500+ total across all games' },
-  { id:'combo_master',   name:'Combo Master',   desc:'Reach x15 combo in one run' },
-  { id:'speed_freak',    name:'Speed Freak',    desc:'Reach speed 15x in a run' },
-  { id:'millionaire',    name:'Millionaire',    desc:'Collect 1000 coins total' },
 ];
 let achievements = JSON.parse(localStorage.getItem('ngmi_achievements')||'[]');
 function hasAchievement(id) { return achievements.includes(id); }
@@ -397,8 +368,6 @@ function unlockAchievement(id) {
 }
 // Per-run trackers
 let runDoubleJumps = 0, runDodgeCount = 0, runRugDodges = 0, runSpeedMaxed = false;
-let runNearMisses = 0, runFomoDodges = 0, runMagnetCoins = 0, runNoPowerups = true;
-let runPrevCombo = 0;
 // Cumulative trackers from localStorage
 let totalDoubleJumps = parseInt(localStorage.getItem('ngmi_total_jumps2')||'0');
 let totalShields = parseInt(localStorage.getItem('ngmi_total_shields')||'0');
@@ -445,42 +414,6 @@ async function sbFetch(path, method='GET', body=null, extraHeaders={}) {
   const opts = { method, headers };
   if (body) opts.body = JSON.stringify(body);
   return fetch(`${SUPABASE_URL}${path}`, opts);
-}
-
-// ─── DAILY SCORES TABLE SQL (run in Supabase SQL editor):
-// create table if not exists public.daily_scores (
-//   id bigserial primary key, username text not null, score integer not null default 0,
-//   date text not null, created_at timestamptz not null default now(), unique(username, date)
-// );
-// alter table public.daily_scores enable row level security;
-// create policy "Public read" on public.daily_scores for select using (true);
-// create policy "Public insert" on public.daily_scores for insert with check (true);
-// create policy "Public update" on public.daily_scores for update using (true);
-
-async function submitDailyScore(s) {
-  try {
-    const today = getDailyDateStr();
-    const checkRes = await sbFetch(`/rest/v1/daily_scores?username=eq.${encodeURIComponent(playerName)}&date=eq.${today}&select=score`);
-    if (checkRes.ok) {
-      const existing = await checkRes.json();
-      if (existing && existing.length > 0) {
-        if (s > existing[0].score) {
-          await sbFetch(`/rest/v1/daily_scores?username=eq.${encodeURIComponent(playerName)}&date=eq.${today}`, 'PATCH', { score: s });
-        }
-        return true;
-      }
-    }
-    const res = await sbFetch('/rest/v1/daily_scores', 'POST', { username: playerName, score: s, date: today }, { 'Prefer': 'return=minimal' });
-    return res.ok;
-  } catch(e) { return false; }
-}
-
-async function getDailyChallengeLB() {
-  try {
-    const today = getDailyDateStr();
-    const res = await sbFetch(`/rest/v1/daily_scores?date=eq.${today}&order=score.desc&limit=10&select=username,score`);
-    return res.ok ? await res.json() : [];
-  } catch(e) { return []; }
 }
 
 async function submitScore(s) {
@@ -565,8 +498,18 @@ async function showClanModal() {
     const rank = allClans.findIndex(c => c.id === myClanId) + 1;
     const myClan = allClans.find(c => c.id === myClanId);
     if (myClan) myClanName = myClan.name;
-    showClanMemberView(modal, myClan, rank, allClans, 'myclan');
-  
+    modal.innerHTML = `
+      <div style="font-family:'VT323',monospace;font-size:1.8rem;color:#00ccff;text-shadow:0 0 20px #00ccff">CLAN WARS</div>
+      <div style="font-family:'VT323',monospace;font-size:1.3rem;color:#fff">[${myClan?.tag||'???'}] ${myClanName||'?'}</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:#ff003388;display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;width:80%;max-width:280px;margin:4px 0">
+        <div><div style="color:#ff003355;font-size:0.65rem;letter-spacing:2px">RANK</div><div style="color:#ffaa00;font-family:'VT323',monospace;font-size:1.2rem">#${rank||'?'}</div></div>
+        <div><div style="color:#ff003355;font-size:0.65rem;letter-spacing:2px">TOTAL SCORE</div><div style="color:#ff0033;font-family:'VT323',monospace;font-size:1.2rem">${myClan?.total_score||0}</div></div>
+        <div><div style="color:#ff003355;font-size:0.65rem;letter-spacing:2px">MEMBERS</div><div style="color:#ff0033;font-family:'VT323',monospace;font-size:1.2rem">${myClan?.member_count||0}</div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn" style="font-size:1.1rem;padding:4px 14px;border-color:#ff003366;color:#ff003388" onclick="leaveClan()">[ LEAVE ]</button>
+        <button class="btn btn-clan" onclick="closeClanModal()">[ CLOSE ]</button>
+      </div>`;
   } else {
     const topClans = await getTopClans(5);
     const topHtml = topClans.map((c,i) => `<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:0.7rem;border-bottom:1px solid #ff000a;color:${i===0?'#ffaa00':i===1?'#aaa':i===2?'#cc6622':'#ff003388'}"><span>#${i+1} [${c.tag}] ${c.name}</span><span>${c.total_score||0} pts · ${c.member_count||0}👥</span></div>`).join('');
@@ -589,75 +532,9 @@ async function showClanModal() {
   }
 }
 
-function getWeekRange() {
-  const now = new Date();
-  const day = now.getUTCDay(); // 0=Sun, 1=Mon
-  const diffToMon = (day === 0 ? -6 : 1 - day);
-  const mon = new Date(now); mon.setUTCDate(now.getUTCDate() + diffToMon); mon.setUTCHours(0,0,0,0);
-  const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
-  const fmt = d => `${d.getUTCDate()}/${d.getUTCMonth()+1}`;
-  return `${fmt(mon)} — ${fmt(sun)}`;
-}
-
-function showClanMemberView(modal, myClan, rank, allClans, tab) {
-  const tabBtn = (id, label, active) => `<button onclick="showClanTab('${id}')" style="background:${active?'#00ccff22':'transparent'};border:1px solid ${active?'#00ccff':'#00ccff44'};color:${active?'#00eeff':'#00ccff66'};font-family:'VT323',monospace;font-size:0.95rem;padding:3px 10px;cursor:pointer;letter-spacing:1px;">${label}</button>`;
-  const tabs = `<div style="display:flex;gap:6px;margin:6px 0">${tabBtn('myclan','MY CLAN',tab==='myclan')}${tabBtn('lb','LEADERBOARD',tab==='lb')}${tabBtn('war','⚔️ WAR',tab==='war')}</div>`;
-
-  let content = '';
-  if (tab === 'myclan') {
-    content = `
-      <div style="font-family:'VT323',monospace;font-size:1.3rem;color:#fff">[${myClan?.tag||'???'}] ${myClan?.name||'?'}</div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:#ff003388;display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;width:80%;max-width:280px;margin:4px 0">
-        <div><div style="color:#ff003355;font-size:0.65rem;letter-spacing:2px">RANK</div><div style="color:#ffaa00;font-family:'VT323',monospace;font-size:1.2rem">#${rank||'?'}</div></div>
-        <div><div style="color:#ff003355;font-size:0.65rem;letter-spacing:2px">TOTAL SCORE</div><div style="color:#ff0033;font-family:'VT323',monospace;font-size:1.2rem">${myClan?.total_score||0}</div></div>
-        <div><div style="color:#ff003355;font-size:0.65rem;letter-spacing:2px">MEMBERS</div><div style="color:#ff0033;font-family:'VT323',monospace;font-size:1.2rem">${myClan?.member_count||0}</div></div>
-      </div>
-      <button class="btn" style="font-size:1.1rem;padding:4px 14px;border-color:#ff003366;color:#ff003388" onclick="leaveClan()">[ LEAVE CLAN ]</button>`;
-  } else if (tab === 'lb') {
-    const lbRows = allClans.slice(0,10).map((c,i) => {
-      const isMine = c.id === myClanId;
-      const color = i===0?'#ffaa00':i===1?'#aaa':i===2?'#cc6622':'#ff003388';
-      return `<div style="display:flex;justify-content:space-between;padding:4px 10px;font-size:0.72rem;border-bottom:1px solid #ff000a;color:${color};${isMine?'background:#00ccff11;':''}">`+
-        `<span>${['🥇','🥈','🥉'][i]||`#${i+1}`} [${c.tag}] ${c.name}${isMine?' ◀':''}</span><span>${c.total_score||0} pts · ${c.member_count||0}👥</span></div>`;
-    }).join('');
-    content = `<div style="width:94%;max-width:340px;border:1px solid #00ccff33;background:#0a0000;margin:4px 0;max-height:240px;overflow-y:auto">${lbRows||'<div style="padding:8px;font-size:0.7rem;color:#ff003344;text-align:center;font-family:Share Tech Mono,monospace">NO CLANS YET</div>'}</div>`;
-  } else if (tab === 'war') {
-    const weekRange = getWeekRange();
-    const warRows = allClans.slice(0,10).map((c,i) => {
-      const isMine = c.id === myClanId;
-      const color = i===0?'#ffaa00':i===1?'#aaa':i===2?'#cc6622':'#ff003388';
-      const crown = i===0 ? '👑 ' : '';
-      return `<div style="display:flex;justify-content:space-between;padding:4px 10px;font-size:0.72rem;border-bottom:1px solid #ff000a;color:${color};${isMine?'background:#00ccff11;':''}">`+
-        `<span>${crown}#${i+1} [${c.tag}] ${c.name}${isMine?' ◀':''}</span><span>${c.total_score||0} pts</span></div>`;
-    }).join('');
-    content = `
-      <div style="font-family:'VT323',monospace;font-size:0.9rem;color:#00ccff88;letter-spacing:2px">WEEK: ${weekRange}</div>
-      <div style="width:94%;max-width:340px;border:1px solid #00ccff33;background:#0a0000;margin:4px 0;max-height:220px;overflow-y:auto">${warRows||'<div style="padding:8px;font-size:0.7rem;color:#ff003344;text-align:center;font-family:Share Tech Mono,monospace">NO CLANS YET</div>'}</div>
-      <div style="font-size:0.65rem;color:#ff003344;font-family:Share Tech Mono,monospace;letter-spacing:1px">SEASON RESETS MONDAY</div>`;
-  }
-
-  modal.innerHTML = `
-    <div style="font-family:'VT323',monospace;font-size:1.8rem;color:#00ccff;text-shadow:0 0 20px #00ccff">CLAN WARS</div>
-    ${tabs}
-    ${content}
-    <button class="btn btn-clan" style="margin-top:8px" onclick="closeClanModal()">[ CLOSE ]</button>`;
-
-  // store refs for tab switching
-  window._clanModalData = { myClan, rank, allClans };
-}
-
-async function showClanTab(tab) {
-  const modal = document.getElementById('clan-modal');
-  if (!modal) return;
-  const d = window._clanModalData;
-  if (!d) return;
-  showClanMemberView(modal, d.myClan, d.rank, d.allClans, tab);
-}
-
 function closeClanModal() {
   const modal = document.getElementById('clan-modal');
   if (modal) document.body.removeChild(modal);
-  window._clanModalData = null;
 }
 
 async function createClan() {
@@ -668,7 +545,7 @@ async function createClan() {
   const tag = tagEl.value.trim().toUpperCase();
   if (!name || tag.length < 1 || tag.length > 4) { alert('Enter a clan name and 1-4 char tag'); return; }
   try {
-    const res = await sbFetch('/rest/v1/clans', 'POST', { name, tag, founder: myRefCode, total_score: 0, member_count: 1 }, { 'Prefer': 'return=representation' });
+    const res = await sbFetch('/rest/v1/clans', 'POST', { name, tag, owner: myRefCode, total_score: 0, member_count: 1 }, { 'Prefer': 'return=representation' });
     if (!res.ok) { alert('Failed to create clan (tag may already be taken)'); return; }
     const clans = await res.json();
     const clan = clans[0];
@@ -758,28 +635,39 @@ function saveBest(s) {
   }
 }
 
-
-
-
+// ─── HOLDER BONUS ─────────────────────────────────────────────────────────────
+let holderVerified = localStorage.getItem('ngmi_holder_verified') === '1';
+function verifyHolder() {
+  try { if (tg?.openTelegramLink) tg.openTelegramLink('https://t.me/NGMI_Ton'); else window.open('https://t.me/NGMI_Ton','_blank'); } catch(e) {}
+  localStorage.setItem('ngmi_holder_verified', '1');
+  holderVerified = true;
+  showStart();
+}
+function getHolderMultiplier() { return holderVerified ? 1.2 : 1.0; }
+function renderHolderBonusDisplay() {
+  const el = document.getElementById('holder-bonus-display');
+  if (!el) return;
+  if (holderVerified) {
+    el.innerHTML = `<div class="holder-bonus-text verified">💎 HOLDER BONUS ACTIVE · +20% SCORE</div>`;
+  } else {
+    el.innerHTML = `<div class="holder-bonus-text">🐸 NGMI holders get +20% score bonus</div><button class="btn btn-holder" onclick="verifyHolder()">[ VERIFY HOLDER ]</button>`;
+  }
+}
 
 // ─── SKINS ───────────────────────────────────────────────────────────────────
 const SKINS = [
-  { id: 0, emoji: '🐸', label: 'DEFAULT',    unlockAt: 0,   requiresStreak: 0 },
-  { id: 1, emoji: '💀', label: 'NGMI SKULL', unlockAt: 50,  requiresStreak: 0 },
-  { id: 2, emoji: '🚀', label: 'MOON BOI',   unlockAt: 100, requiresStreak: 0 },
-  { id: 3, emoji: '🐋', label: 'WHALE',      unlockAt: 200, requiresStreak: 0 },
-  { id: 4, emoji: '💎', label: 'DIAMOND',    unlockAt: 300, requiresStreak: 0 },
-  { id: 5, emoji: '👑', label: 'LEGEND',     unlockAt: 0,   requiresStreak: 7 },
-  { id: 6, emoji: '🦊', label: 'DEGEN FOX',  unlockAt: 30,  requiresStreak: 0 },
-  { id: 7, emoji: '🤖', label: 'ALGO BOT',   unlockAt: 75,  requiresStreak: 0 },
-  { id: 8, emoji: '🔥', label: 'CHAD',       unlockAt: 150, requiresStreak: 0 },
-  { id: 9, emoji: '🧲', label: 'MAGNET',     unlockAt: 0,   requiresStreak: 3 },
-  { id:10, emoji: '🌙', label: 'MOONMAN',    unlockAt: 500, requiresStreak: 0 },
+  { id: 0, emoji: '🐸', label: 'DEFAULT',    unlockAt: 0,   requiresHolder: false, requiresStreak: 0 },
+  { id: 1, emoji: '💀', label: 'NGMI SKULL', unlockAt: 50,  requiresHolder: false, requiresStreak: 0 },
+  { id: 2, emoji: '🚀', label: 'MOON BOI',   unlockAt: 100, requiresHolder: false, requiresStreak: 0 },
+  { id: 3, emoji: '🐋', label: 'WHALE',      unlockAt: 200, requiresHolder: false, requiresStreak: 0 },
+  { id: 4, emoji: '💎', label: 'DIAMOND',    unlockAt: 0,   requiresHolder: true,  requiresStreak: 0 },
+  { id: 5, emoji: '👑', label: 'LEGEND',     unlockAt: 0,   requiresHolder: false, requiresStreak: 7 },
 ];
 let selectedSkin = parseInt(localStorage.getItem('ngmi_skin') || '0');
 if (selectedSkin >= SKINS.length) selectedSkin = 0;
 function getSkin() { return SKINS[selectedSkin] || SKINS[0]; }
 function isSkinUnlocked(s) {
+  if (s.requiresHolder && !holderVerified) return false;
   if (s.requiresStreak > 0 && streakCount < s.requiresStreak) return false;
   if (s.unlockAt > 0 && best < s.unlockAt) return false;
   return true;
@@ -816,7 +704,8 @@ function showSkinShop() {
         const unlocked = isSkinUnlocked(s);
         const active = selectedSkin === s.id;
         let condText = '';
-        if (s.requiresStreak > 0) condText = bestStreak >= s.requiresStreak ? `✅ ${s.requiresStreak}D STREAK` : `🔒 ${s.requiresStreak}-DAY STREAK`;
+        if (s.requiresHolder) condText = holderVerified ? '✅ HOLDER' : '🔒 HOLDER ONLY';
+        else if (s.requiresStreak > 0) condText = bestStreak >= s.requiresStreak ? `✅ ${s.requiresStreak}D STREAK` : `🔒 ${s.requiresStreak}-DAY STREAK`;
         else if (s.unlockAt > 0) condText = best >= s.unlockAt ? `✅ ${s.unlockAt} PTS` : `🔒 REACH ${s.unlockAt} PTS`;
         else condText = '✅ FREE';
         const borderCol = active ? '#ffcc00' : (unlocked ? '#ff003366' : '#ff003322');
@@ -934,7 +823,6 @@ function showStats() {
         <div><div class="stat-label">BEST STREAK</div><div class="stat-val">${Math.max(streakCount,parseInt(localStorage.getItem('ngmi_best_streak')||'0'))} 🔥</div></div>
       </div>
       <div class="referral-info" style="margin-top:16px;padding:8px;border:1px solid #00ff6622">YOUR REF LINK: <span>t.me/NGMI_TON_BOT?startapp=ref_${myRefCode}</span></div>
-
     </div>
     <div class="screen-footer"><button class="btn btn-lb" style="font-size:1.3rem;padding:8px 48px" onclick="showStart()">[ BACK ]</button></div>
   `;
@@ -967,12 +855,14 @@ function showStart() {
         <button class="nav-btn" onclick="showSkinShop()"><span>🎨</span><span>SKINS</span></button>
         <button class="nav-btn" onclick="showAchievements()"><span>🏅</span><span>BADGES</span></button>
       </div>
+      <div id="holder-bonus-display" style="margin-top:4px"></div>
       <div id="referral-display"></div>
     </div>
   `;
   renderSkinSelector();
   renderStreakDisplay();
   renderReferralDisplay();
+  renderHolderBonusDisplay();
   startTitleAnimation();
 }
 
@@ -1009,6 +899,7 @@ function stopTitleAnimation() {
 renderSkinSelector();
 renderStreakDisplay();
 renderReferralDisplay();
+renderHolderBonusDisplay();
 startTitleAnimation();
 
 // ─── SHARE / SCORE CARD ──────────────────────────────────────────────────────
@@ -1180,16 +1071,13 @@ function getDayNightColors() {
 // ─── GAME STATE ───────────────────────────────────────────────────────────────
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
-const W=700, H=300, GROUND=H-56, GRAVITY=0.45, JUMP=-13;
+const W=700, H=300, GROUND=H-56, GRAVITY=0.55, JUMP=-12;
 
 let state='idle', score=0, frame=0, speed=4, combo=0;
 let chartPoints=[], chartOffset=0, bgOffset=0;
 let particles=[], messages=[], obstacles=[], candles=[], powerups=[], coins=[];
 let nextObstacle=90, nextCandle=70, nextPowerup=150, nextCoin=120, noiseState=0;
-let shakeFrames=0, turboFrames=0, shieldActive=false, magnetFrames=0;
-// ─── COMBO SYSTEM ─────────────────────────────────────────────────────────────
-let comboCount=0; // near-miss combo
-function getComboMult() { return Math.min(1.0 + comboCount * 0.1, 2.0); }
+let shakeFrames=0, turboFrames=0, shieldActive=false;
 const MILESTONES = [25, 50, 100, 200];
 let milestonesDone = new Set();
 let hardMode = parseInt(localStorage.getItem('ngmi_hardmode')||'0') === 1;
@@ -1207,43 +1095,8 @@ function noise(x) { return Math.sin(x*7.3+noiseState)*0.5+Math.sin(x*3.1+noiseSt
 function initChart() { chartPoints=[]; for(let x=0;x<=W+20;x+=5) chartPoints.push(noise(x*0.01)*28+GROUND-8); }
 
 // ─── START / JUMP ─────────────────────────────────────────────────────────────
-function showTutorial(cb) {
-  if (localStorage.getItem('ngmi_tutorial_done')) { cb(); return; }
-  const tips = [
-    { icon: '👆', text: 'TAP TO JUMP', sub: 'avoid the rugs!' },
-    { icon: '👆👆', text: 'DOUBLE TAP', sub: 'double jump to reach higher!' },
-    { icon: '⚡', text: 'GRAB POWER-UPS', sub: 'turbo, shield & magnet!' },
-  ];
-  let i = 0;
-  const ol = document.getElementById('overlay');
-  ol.style.display = 'flex';
-  function showTip() {
-    if (i >= tips.length) {
-      localStorage.setItem('ngmi_tutorial_done', '1');
-      ol.style.display = 'none';
-      cb(); return;
-    }
-    const t = tips[i];
-    ol.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px">
-      <div style="font-size:3rem">${t.icon}</div>
-      <div style="font-family:'VT323',monospace;font-size:2.5rem;color:#ff0033;text-shadow:0 0 20px #ff0033">${t.text}</div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:0.85rem;color:#ff003377;letter-spacing:2px">${t.sub}</div>
-      <div style="font-size:0.65rem;color:#ff003333;letter-spacing:2px;margin-top:8px">TAP TO CONTINUE (${i+1}/${tips.length})</div>
-    </div>`;
-    i++;
-    const handler = () => { ol.removeEventListener('click', handler); setTimeout(showTip, 200); };
-    setTimeout(() => ol.addEventListener('click', handler), 300);
-    setTimeout(showTip, 1800);
-  }
-  showTip();
-}
-
 function startGame(daily) {
   if (!audioReady) initAudioSync();
-  if (!localStorage.getItem('ngmi_tutorial_done')) {
-    showTutorial(() => startGame(daily));
-    return;
-  }
   stopTitleAnimation();
   stopMusic();
 
@@ -1275,8 +1128,6 @@ function startGame(daily) {
   newBestShown = false;
   frogScale = { x: 1, y: 1, squashFrames: 0, wasOnGround: true };
   runDoubleJumps = 0; runDodgeCount = 0; runRugDodges = 0; runSpeedMaxed = false;
-  runNearMisses = 0; runFomoDodges = 0; runMagnetCoins = 0; runNoPowerups = true; runPrevCombo = 0; magnetFrames = 0;
-  comboCount = 0;
   Object.assign(frog, {y:GROUND,vy:0,dead:false,jumpCount:0});
   obstacles=[]; candles=[]; particles=[]; messages=[]; powerups=[]; coins=[];
   nextObstacle=100; nextCandle=80; nextPowerup=150; nextCoin=120;
@@ -1348,14 +1199,14 @@ function spawnCoinCluster() {
 
 // ─── SPAWNERS ────────────────────────────────────────────────────────────────
 function spawnObstacle() {
-  const types = hardMode ? ['rug','honeypot','dev','sec','sec','fomo'] : ['rug','honeypot','dev'];
+  const types = hardMode ? ['rug','honeypot','dev','sec','sec'] : ['rug','honeypot','dev'];
   const type = types[Math.floor(gameRand()*types.length)];
   const h = 28+gameRand()*32;
   const bobs = gameRand() < 0.3;
   const baseY = GROUND+frog.h-h;
   obstacles.push({x:W+20,y:baseY,baseY,w:22,h,type,passed:false,bobs,bobPhase:gameRand()*Math.PI*2});
-  const base = hardMode ? 80 : 120;
-  nextObstacle = base + gameRand()*80;
+  const base = hardMode ? 45 : 65;
+  nextObstacle = base + gameRand()*45;
 }
 
 function spawnBoss() {
@@ -1386,7 +1237,7 @@ function spawnCandle() {
   nextCandle = 80+gameRand()*80;
 }
 function spawnPowerup() {
-  const r = gameRand(); const type = r < 0.4 ? 'turbo' : r < 0.7 ? 'shield' : 'magnet';
+  const type = gameRand() < 0.5 ? 'turbo' : 'shield';
   powerups.push({x:W+20,y:GROUND-50-gameRand()*40,w:24,h:24,type,collected:false});
   nextPowerup = 160+gameRand()*120;
 }
@@ -1421,8 +1272,8 @@ function drawFrog(dead) {
 }
 
 function drawObstacle(o) {
-  const cols={rug:'#cc2200',honeypot:'#ffaa00',dev:'#9900cc',sec:'#0055ff',boss:'#ff0000',bear:'#003399',whale:'#7700cc',fomo:'#ff44cc'};
-  const lbls={rug:'RUG',honeypot:'HONEY',dev:'DEV',sec:'SEC',boss:'DUMP',bear:'BEAR',whale:'WHALE',fomo:'FOMO'};
+  const cols={rug:'#cc2200',honeypot:'#ffaa00',dev:'#9900cc',sec:'#0055ff',boss:'#ff0000',bear:'#003399',whale:'#7700cc'};
+  const lbls={rug:'RUG',honeypot:'HONEY',dev:'DEV',sec:'SEC',boss:'DUMP',bear:'BEAR',whale:'WHALE'};
   const c=cols[o.type]||'#cc2200';
   ctx.fillStyle=c+'22'; ctx.fillRect(o.x,o.y,o.w,o.h);
   ctx.strokeStyle=c; ctx.lineWidth=o.isBoss?3:2; ctx.strokeRect(o.x,o.y,o.w,o.h);
@@ -1464,8 +1315,8 @@ function drawCoin(coin) {
 
 function drawPowerup(p) {
   const t = Date.now()/400;
-  const col = p.type==='turbo' ? '#ff6600' : p.type==='shield' ? '#00ffff' : '#ffcc00';
-  const lbl = p.type==='turbo' ? '⚡' : p.type==='shield' ? '🛡' : '🧲';
+  const col = p.type==='turbo' ? '#ff6600' : '#00ffff';
+  const lbl = p.type==='turbo' ? '⚡' : '🛡';
   ctx.save();
   ctx.shadowColor=col; ctx.shadowBlur=14+Math.sin(t)*6;
   ctx.strokeStyle=col; ctx.lineWidth=2;
@@ -1524,23 +1375,6 @@ function drawCombo() {
   ctx.shadowBlur=0;
 }
 
-function drawNearMissCombo() {
-  if(comboCount < 2) return;
-  const mult = getComboMult();
-  const pulse = 0.8 + Math.sin(Date.now()/120) * 0.2;
-  const col = comboCount >= 10 ? '#ff0033' : comboCount >= 5 ? '#ff6600' : '#ffcc00';
-  ctx.save();
-  ctx.globalAlpha = pulse;
-  ctx.fillStyle = col;
-  ctx.font = `${Math.min(14 + comboCount, 24)}px "VT323"`;
-  ctx.textAlign = 'right';
-  ctx.shadowColor = col; ctx.shadowBlur = 10;
-  ctx.fillText(`🔥 COMBO x${comboCount}  (${mult.toFixed(1)}x)`, W-8, 64);
-  ctx.shadowBlur = 0;
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
 function drawMilestoneBar() {
   const nextMs = MILESTONES.find(m => score < m) || MILESTONES[MILESTONES.length-1];
   const prevMs = MILESTONES[MILESTONES.indexOf(nextMs)-1] || 0;
@@ -1576,7 +1410,7 @@ function checkMilestone(s) {
     if(s >= m && !milestonesDone.has(m)) {
       milestonesDone.add(m);
       SFX.milestone(); haptic.success();
-      const labels = {25:'🥉 BRONZE TIER!',50:'🥈 SILVER TIER!',100:'🥇 GOLD TIER!',200:'💎 DIAMOND TIER!'};
+      const labels = {25:'ALMOST WAGMI 🐸',50:'BASED FROG ⚡',100:'LEGEND ANON 👑',200:'NGMI GOD 🔥'};
       showMsg(labels[m]||`${m} PTS!`, W/2, H/2-30, '#ffaa00', true);
     }
   }
@@ -1592,86 +1426,17 @@ function checkMilestone(s) {
   if (hardMode && s >= 0) { /* check sec evader per obstacle */ }
 }
 
-// ─── PRIZES ──────────────────────────────────────────────────────────────────
-const PRIZE_TIERS = [
-  { min: 200, label: '💎 DIAMOND', color: '#00eeff', bg: '#00eeff11', border: '#00eeff44', desc: 'LEGENDARY. Weekly prize pool eligible.' },
-  { min: 100, label: '🥇 GOLD',    color: '#ffcc00', bg: '#ffcc0011', border: '#ffcc0044', desc: 'ELITE TRADER. Top of the charts.' },
-  { min: 50,  label: '🥈 SILVER',  color: '#cccccc', bg: '#cccccc11', border: '#cccccc33', desc: 'BASED FROG. Better than most.' },
-  { min: 25,  label: '🥉 BRONZE',  color: '#cc6622', bg: '#cc662211', border: '#cc662233', desc: 'DEGEN VIBES. Keep practicing.' },
-  { min: 0,   label: '💀 NGMI',    color: '#ff003377', bg: '#ff000011', border: '#ff003322', desc: 'Touch grass. Then try again.' },
-];
-
-function getPrizeTier(score) {
-  return PRIZE_TIERS.find(t => score >= t.min);
-}
-
-function getPrizeTierBadge(score) {
-  const t = getPrizeTier(score);
-  return `<div style="font-family:'VT323',monospace;font-size:1.1rem;color:${t.color};background:${t.bg};border:1px solid ${t.border};padding:2px 16px;letter-spacing:2px;margin-top:2px">${t.label}</div>`;
-}
-
-function showPrizes() {
-  const ol = document.getElementById('overlay');
-  ol.style.display='flex';
-  ol.innerHTML=`
-    <div class="screen" style="width:100%">
-      <div class="screen-top" style="padding:12px 8px 6px">
-        <div style="font-family:'VT323',monospace;font-size:2.4rem;color:#ffcc00;text-shadow:0 0 20px #ffcc0066;letter-spacing:4px">🏆 PRIZES</div>
-        <div style="font-size:0.7rem;color:#888;letter-spacing:2px;margin-top:-4px">SCORE HIGH · WIN BIG</div>
-      </div>
-      <div class="screen-scroll" style="padding:8px 16px;display:flex;flex-direction:column;gap:8px">
-        ${PRIZE_TIERS.map(t => `
-          <div style="border:1px solid ${t.border};background:${t.bg};padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <div style="font-family:'VT323',monospace;font-size:1.3rem;color:${t.color};letter-spacing:2px">${t.label}</div>
-              <div style="font-size:0.65rem;color:#777;letter-spacing:1px;margin-top:2px">${t.desc}</div>
-            </div>
-            <div style="font-family:'VT323',monospace;font-size:1.1rem;color:${t.color};opacity:0.7">${t.min === 0 ? '0+' : t.min + '+'} PTS</div>
-          </div>
-        `).join('')}
-        <div style="border:1px solid #ffcc0033;background:#ffcc0008;padding:10px 14px;margin-top:4px">
-          <div style="font-family:'VT323',monospace;font-size:1.1rem;color:#ffcc00;letter-spacing:2px">💰 WEEKLY PRIZE POOL</div>
-          <div style="font-size:0.65rem;color:#888;letter-spacing:1px;margin-top:4px;line-height:1.7">
-            Top DIAMOND players each week compete for TON prizes.<br>
-            Prizes distributed every Monday to top 3 on the leaderboard.<br>
-            <span style="color:#ffcc0066">Prize pool grows with the community. Check back soon.</span>
-          </div>
-        </div>
-        <div style="border:1px solid #00ccff33;background:#00ccff08;padding:10px 14px">
-          <div style="font-family:'VT323',monospace;font-size:1.1rem;color:#00ccff;letter-spacing:2px">📅 DAILY CHALLENGE</div>
-          <div style="font-size:0.65rem;color:#888;letter-spacing:1px;margin-top:4px;line-height:1.7">
-            First place on the daily leaderboard earns a special badge.<br>
-            Play every day to build your streak multiplier.
-          </div>
-        </div>
-      </div>
-      <div class="screen-footer">
-        <button class="btn" style="font-size:1.2rem;padding:6px 32px" onclick="showStart()">[ BACK ]</button>
-      </div>
-    </div>
-  `;
-}
-
 // ─── GAME OVER ───────────────────────────────────────────────────────────────
 async function gameOver() {
   state='dead'; frog.dead=true;
   SFX.gameover(); haptic.error(); triggerShake();
   stopMusic();
-  const finalDisplayScore = Math.round(score * getStreakMultiplier());
+  const finalDisplayScore = Math.round(score * getStreakMultiplier() * getHolderMultiplier());
   saveBest(finalDisplayScore);
   updateStats(finalDisplayScore, sessionCoins);
 
   // Achievement: first blood
   unlockAchievement('first_blood');
-  // More achievement checks
-  if (gamesPlayed >= 20) unlockAchievement('no_sleep');
-  if (totalScore >= 500) unlockAchievement('ngmi_whale');
-  const curTotalCoins = parseInt(localStorage.getItem('ngmi_total_coins')||'0');
-  if (curTotalCoins >= 200) unlockAchievement('rich_frog');
-  if (curTotalCoins >= 1000) unlockAchievement('millionaire');
-  if (runNoPowerups && score >= 50) unlockAchievement('perfectionist');
-  if (runMagnetCoins >= 20) unlockAchievement('magnet_master');
-  if (speed >= 15) unlockAchievement('speed_freak');
 
   // Daily mode: record completion
   if (isDailyMode) {
@@ -1680,7 +1445,6 @@ async function gameOver() {
     dailyChallengesCompleted++;
     localStorage.setItem('ngmi_daily_count', dailyChallengesCompleted);
     if (dailyChallengesCompleted >= 7) unlockAchievement('daily_grinder');
-    await submitDailyScore(finalDisplayScore);
     await submitScore(finalDisplayScore);
   } else {
     await submitScore(finalDisplayScore);
@@ -1705,13 +1469,10 @@ async function gameOver() {
   }
 
   const verdict = finalDisplayScore<10?'STAY POOR':finalDisplayScore<30?'CLASSIC NGMI':finalDisplayScore<60?'ALMOST WAGMI':finalDisplayScore<100?'BASED FROG':'LEGEND ANON';
-  if(finalDisplayScore>=150) { localStorage.setItem('ngmi_hardmode','1'); hardMode=true; }
+  if(finalDisplayScore>=50) { localStorage.setItem('ngmi_hardmode','1'); hardMode=true; }
 
   setTimeout(async()=>{
-    const fetchArr = isDailyMode
-      ? [getDailyChallengeLB(), getMyRank(finalDisplayScore)]
-      : [getLeaderboard(), getMyRank(finalDisplayScore)];
-    const [rows, myRank] = await Promise.all(fetchArr);
+    const [rows, myRank] = await Promise.all([getLeaderboard(), getMyRank(finalDisplayScore)]);
     const lbHtml = rows.length
       ? rows.map((r,i)=>`<div class="lb-row ${r.username===playerName?'me':''}"><span class="rank">${['🥇','🥈','🥉'][i]||'#'+(i+1)}</span><span class="name">${r.username}</span><span class="pts">${r.score}</span></div>`).join('')
       : '<div class="lb-loading">BE THE FIRST</div>';
@@ -1719,30 +1480,26 @@ async function gameOver() {
     const hardTxt = hardMode ? `<div class="sub" style="color:#0055ff88">⚡ HARD MODE ACTIVE</div>` : (finalDisplayScore>=40?`<div class="sub" style="color:#ff660066">REACH 50 TO UNLOCK HARD MODE</div>`:'');
     const coinsTxt = sessionCoins > 0 ? `<div class="sub" style="color:#ffcc0077">🪙 ${sessionCoins} COINS THIS RUN</div>` : '';
     const streakTxt = streakCount >= 2 ? `<div class="sub" style="color:#ff660088">🔥 ${streakCount} DAY STREAK · x${getStreakMultiplier().toFixed(2)} MULTIPLIER</div>` : '';
-    const dailyBadge = isDailyMode ? `<div style="font-family:'VT323',monospace;font-size:1.1rem;color:#ffcc00;letter-spacing:2px;background:#ffcc0011;border:1px solid #ffcc0044;padding:2px 12px;margin-top:2px">📅 DAILY CHALLENGE</div>` : '';
+    const holderTxt = holderVerified ? `<div class="sub" style="color:#00ccff88">💎 HOLDER BONUS x1.2 APPLIED</div>` : '';
     const dailyTxt = isDailyMode ? `<div class="sub" style="color:#ffcc0088">✅ DAILY CHALLENGE COMPLETE!</div>` : '';
-    const lbLabel = isDailyMode ? `TODAY'S DAILY TOP 10` : `TOP SCORES`;
     const ol = document.getElementById('overlay');
     ol.style.display='flex';
     ol.innerHTML=`
       <div class="screen-top" style="width:100%;text-align:center;padding-top:6px">
         <h1 style="font-size:2.8rem;animation:flicker 2.5s infinite">RUGGED</h1>
         <div class="verdict" style="font-size:1.6rem">${verdict}</div>
-        ${dailyBadge}
-      ${finalDisplayScore > (best - finalDisplayScore) && finalDisplayScore >= best ? '<div style="font-family:\'VT323\',monospace;font-size:1.4rem;color:#ffcc00;text-shadow:0 0 20px #ffcc00;animation:flicker 1s infinite">🌟 NEW BEST!</div>' : ''}
       </div>
       <div class="screen-mid" style="width:100%;gap:6px">
         <div class="big-score" style="font-size:3.5rem;line-height:1">${finalDisplayScore}</div>
-        <div class="sub" style="font-size:0.75rem;color:#888888">POINTS</div>
-        ${getPrizeTierBadge(finalDisplayScore)}
-        ${streakTxt}
+        <div class="sub" style="font-size:0.75rem;color:#ff003355">POINTS</div>
+        ${streakTxt}${holderTxt}
         <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:4px">
           ${rankTxt}${coinsTxt}
         </div>
         ${dailyTxt}${hardTxt}
       </div>
       <div style="width:90%;flex:1;min-height:0;display:flex;flex-direction:column;gap:4px">
-        <div style="font-family:'VT323',monospace;font-size:0.9rem;color:${isDailyMode?'#ffcc00bb':'#aaaaaa'};letter-spacing:2px;text-align:center">${lbLabel}</div>
+        <div style="font-family:'VT323',monospace;font-size:0.9rem;color:#ff003366;letter-spacing:2px;text-align:center">TOP SCORES</div>
         <div id="lb-wrap" style="flex:1;min-height:60px;max-height:120px">${lbHtml}</div>
       </div>
       <div class="screen-bot" style="width:100%;gap:8px;padding-top:8px">
@@ -1751,7 +1508,7 @@ async function gameOver() {
           <button class="btn btn-card" style="flex:1;font-size:1.2rem;padding:8px 0" onclick="showScoreCard(${finalDisplayScore},${myRank||0})">[ SHARE CARD ]</button>
         </div>
         <div style="display:flex;gap:8px;width:92%;justify-content:center">
-          <button class="btn btn-lb" style="flex:1;font-size:1.1rem;padding:6px 0" onclick="showLeaderboard(${isDailyMode?`'daily'`:`'alltime'`})">[ LEADERBOARD ]</button>
+          <button class="btn btn-lb" style="flex:1;font-size:1.1rem;padding:6px 0" onclick="showLeaderboard('alltime')">[ LEADERBOARD ]</button>
           <button class="btn btn-share" style="flex:1;font-size:1.1rem;padding:6px 0" onclick="shareScore(${finalDisplayScore})">[ SHARE ]</button>
         </div>
       </div>
@@ -1770,8 +1527,8 @@ function loop() {
   // Apply streak multiplier to displayed score
   const rawScore = Math.floor(frame/6);
   score = Math.round(rawScore * getStreakMultiplier());
-  const baseSpeed = hardMode ? 3.5 : 2.5;
-  speed = baseSpeed + rawScore*0.008 + (turboFrames>0?2:0);
+  const baseSpeed = hardMode ? 4.5 : 4;
+  speed = baseSpeed + rawScore*0.025 + (turboFrames>0?3:0);
   document.getElementById('score').textContent = score;
 
   if (!newBestShown && score > best && best > 0) {
@@ -1835,35 +1592,14 @@ function loop() {
   if(--nextObstacle<=0) spawnObstacle();
   obstacles = obstacles.filter(o=>o.x>-100);
   for(const o of obstacles){
-    const oSpeed = o.type === 'fomo' ? speed * 1.5 : speed;
-    o.x -= oSpeed;
+    o.x -= speed;
     drawObstacle(o);
-    // Near miss detection (passed within 20px horizontally while close vertically)
-    if(!o.passed && !o._nearMissChecked && o.x+o.w < frog.x+frog.w && o.x+o.w > frog.x-20){
-      const vertDist = Math.min(Math.abs(frog.y - o.y), Math.abs((frog.y+frog.h) - (o.y+o.h)));
-      if(vertDist < 20 && !collision(frog,o)){
-        o._nearMissChecked = true;
-        runNearMisses++;
-        frame += 2; // +2 pts
-        // Combo system: near-miss increments comboCount
-        comboCount++;
-        if(comboCount >= 10) unlockAchievement('combo_king');
-        if(comboCount >= 15) unlockAchievement('combo_master');
-        SFX.nearMiss(); haptic.light();
-        const nearMissMsg = comboCount >= 2 ? `NEAR MISS! 🔥x${comboCount}` : 'NEAR MISS! +2';
-        showMsg(nearMissMsg, o.x+o.w/2, o.y-14, '#ff44cc');
-        if(comboCount >= 2) { setTimeout(()=>showMsg(`COMBO!`,frog.x+frog.w/2,frog.y-30,'#ff6600',false), 0); }
-        spawnParticles(frog.x+frog.w,frog.y+frog.h/2,'#ff44cc',4);
-        if(runNearMisses >= 10) unlockAchievement('near_miss_pro');
-      }
-    }
     if(!o.passed && o.x+o.w<frog.x){
       o.passed=true;
       dodgeStreak++;
       runDodgeCount++;
       if (o.type === 'rug' || o.type === 'honeypot' || o.type === 'dev') { if (!o.isBoss && !o.whaleFlank) runDodgeCount; }
       if (o.type === 'rug') runRugDodges++;
-      if (o.type === 'fomo') { runFomoDodges++; if(runFomoDodges>=5) unlockAchievement('fomo_dodger'); }
       if (o.type === 'sec' && hardMode) unlockAchievement('sec_evader');
       if (o.isBoss && o.bossType === 'dump') {
         unlockAchievement('boss_slayer');
@@ -1880,8 +1616,6 @@ function loop() {
         haptic.success();
       } else if (!o.whaleFlank) {
         combo++; SFX.dodge(); haptic.medium();
-        if(combo !== runPrevCombo){ SFX.comboSfx(combo); runPrevCombo=combo; }
-        if(combo >= 15) unlockAchievement('combo_master');
         const pts = streakFrames > 0 ? 2 : 1;
         if (pts > 1) showMsg('+x2', o.x, o.y-10, '#ffaa00');
       }
@@ -1893,8 +1627,6 @@ function loop() {
       }
     }
     if(collision(frog,o)){
-      if(comboCount >= 2) { showMsg('COMBO BREAK!', frog.x+frog.w/2, frog.y-40, '#ff0033', true); }
-      comboCount = 0;
       if(shieldActive){
         shieldActive=false; combo=0; dodgeStreak=0;
         SFX.shieldHit(); haptic.heavy(); triggerShake();
@@ -1926,33 +1658,13 @@ function loop() {
     if(circleRect(coin.x,coin.y,coin.r,frog.x,frog.y,frog.w,frog.h)){
       coin.collected=true;
       SFX.coinTick(); haptic.light();
-      const coinBonus = Math.round(12 * getComboMult());
-      frame += coinBonus; sessionCoins++;
-      if(magnetFrames > 0) runMagnetCoins++;
+      frame += 12; sessionCoins++;
       spawnParticles(coin.x,coin.y,'#ffcc00',5);
-      showMsg(comboCount>=2?`+${Math.round(2*getComboMult())} 🔥`:'+2',coin.x,coin.y-10,'#ffcc00');
+      showMsg('+2',coin.x,coin.y-10,'#ffcc00');
       // Achievement check
       const tc = totalCoins + sessionCoins;
       if (tc >= 50) unlockAchievement('coin_hoarder');
     }
-  }
-
-  // Magnet effect
-  if (magnetFrames > 0) {
-    magnetFrames--;
-    ctx.save();
-    ctx.strokeStyle = `rgba(255,204,0,${0.3 * magnetFrames/300})`;
-    ctx.lineWidth = 2; ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 10;
-    ctx.beginPath(); ctx.arc(frog.x+frog.w/2, frog.y+frog.h/2, 80, 0, Math.PI*2); ctx.stroke();
-    ctx.restore();
-    for(const coin of coins){
-      if(!coin.collected){
-        const dx = (frog.x+frog.w/2) - coin.x, dy = (frog.y+frog.h/2) - coin.y;
-        const dist = Math.hypot(dx, dy);
-        if(dist < 150){ coin.x += dx*0.12; coin.y += dy*0.12; }
-      }
-    }
-    if(magnetFrames===0) showMsg('MAGNET WORN OFF',frog.x+frog.w/2,frog.y-20,'#ffcc00');
   }
 
   // Powerups
@@ -1961,17 +1673,13 @@ function loop() {
   for(const p of powerups){
     p.x -= speed; drawPowerup(p);
     if(collision(frog,p)){
-      p.collected=true; haptic.success(); runNoPowerups=false;
+      p.collected=true; haptic.success();
       if(p.type==='turbo'){
         turboFrames=180; SFX.turbo();
         document.getElementById('canvas-wrap').classList.add('turbo-active');
         showMsg('⚡ TURBO!',frog.x+frog.w/2,frog.y-30,'#ff6600',true);
         totalTurbos++; localStorage.setItem('ngmi_total_turbos', totalTurbos);
         if (totalTurbos >= 10) unlockAchievement('turbo_junkie');
-      } else if(p.type==='magnet'){
-        magnetFrames=300; SFX.magnet();
-        showMsg('🧲 MAGNET!',frog.x+frog.w/2,frog.y-30,'#ffcc00',true);
-        spawnParticles(p.x+p.w/2,p.y+p.h/2,'#ffcc00',14);
       } else {
         shieldActive=true; SFX.shield();
         showMsg('🛡 SHIELDED!',frog.x+frog.w/2,frog.y-30,'#00ffff',true);
@@ -2012,7 +1720,6 @@ function loop() {
   ctx.fillStyle='#ff003366'; ctx.font='11px "Share Tech Mono"'; ctx.textAlign='right';
   ctx.fillText(`SPD ${speed.toFixed(1)}x`, W-8, 18);
   if(turboFrames>0){ ctx.fillStyle='#ff6600'; ctx.font='13px "VT323"'; ctx.fillText(`⚡ TURBO ${Math.ceil(turboFrames/60)}s`, W-8, 50); }
-  if(magnetFrames>0){ ctx.fillStyle='#ffcc00'; ctx.font='13px "VT323"'; ctx.textAlign='left'; ctx.fillText(`🧲 MAGNET ${Math.ceil(magnetFrames/60)}s`, 8, 50); }
   if(shieldActive){ ctx.fillStyle='#00ffff'; ctx.font='13px "VT323"'; ctx.textAlign='left'; ctx.fillText('🛡 SHIELD', 8, 18); }
   if(hardMode){ ctx.fillStyle='#0055ffaa'; ctx.font='11px "Share Tech Mono"'; ctx.textAlign='left'; ctx.fillText('HARD', 8, shieldActive?32:18); }
   if(streakFrames>0){
@@ -2029,6 +1736,12 @@ function loop() {
   if(dodgeStreak>0 && dodgeStreak<10){
     ctx.fillStyle='#ffffff44'; ctx.font='10px "Share Tech Mono"'; ctx.textAlign='right';
     ctx.fillText(`STREAK ${dodgeStreak}/10`, W-8, streakCount>=2?50:34);
+  }
+  // Holder bonus HUD
+  if (holderVerified) {
+    ctx.fillStyle='#00ccff66'; ctx.font='10px "Share Tech Mono"'; ctx.textAlign='left';
+    const hudY = shieldActive ? 46 : (hardMode ? 32 : 18);
+    ctx.fillText('💎 HOLDER x1.2', 8, hudY + 14);
   }
   // Referral bonus
   if (referrer) {
@@ -2050,7 +1763,6 @@ function loop() {
   }
 
   drawCombo();
-  drawNearMissCombo();
   ctx.restore();
 }
 
