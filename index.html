@@ -10,7 +10,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body { background: #000; color: #fff; font-family: 'Share Tech Mono', monospace; overflow: hidden; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; user-select: none; touch-action: none; }
 #scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.08) 0px, rgba(0,0,0,0.08) 1px, transparent 1px, transparent 4px); pointer-events: none; z-index: 100; }
-#bg-grid { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-image: linear-gradient(rgba(255,0,51,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,0,51,0.04) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
+#bg-grid { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-image: linear-gradient(rgba(255,0,51,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,0,51,0.04) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; transition: background-image 2s; }
 #game-wrap { position: relative; width: 100%; max-width: 700px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px; height: 100vh; justify-content: center; }
 #header { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0 4px; }
 #title { font-family: 'VT323', monospace; font-size: 2.2rem; color: #ff0033; text-shadow: 0 0 20px #ff003388, 2px 2px 0 #aa0022; letter-spacing: 2px; }
@@ -31,6 +31,8 @@ canvas { display: block; width: 100%; background: #050000; }
 .btn-lb:hover, .btn-lb:active { background: #ff003322; color: #ff0033; }
 .btn-share { border-color: #0088cc; color: #0088cc; font-size: 1.2rem; padding: 4px 24px; }
 .btn-share:hover, .btn-share:active { background: #0088cc22; color: #00aaff; box-shadow: 0 0 20px #0088cc; }
+.btn-stats { border-color: #00ff6666; color: #00ff6688; font-size: 1.2rem; padding: 4px 24px; }
+.btn-stats:hover, .btn-stats:active { background: #00ff6622; color: #00ff66; }
 #lb-wrap { width: 100%; max-height: 140px; overflow-y: auto; border: 1px solid #ff003333; background: #0a0000; }
 #lb-wrap::-webkit-scrollbar { width: 4px; }
 #lb-wrap::-webkit-scrollbar-track { background: #000; }
@@ -45,6 +47,18 @@ canvas { display: block; width: 100%; background: #050000; }
 .lb-row.me { background: #ff003311; }
 .lb-row.me .name { color: #ff0033; }
 .lb-loading { text-align: center; padding: 12px; font-size: 0.7rem; color: #ff003344; letter-spacing: 2px; }
+/* Mute button */
+#mute-btn { position: absolute; top: 6px; right: 6px; z-index: 20; background: transparent; border: 1px solid #ff003355; color: #ff003388; font-size: 1rem; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: all 0.15s; }
+#mute-btn:hover { background: #ff003322; color: #ff0033; }
+/* Skin dots */
+.skin-dots { display: flex; gap: 12px; align-items: center; margin: 4px 0; }
+.skin-dot { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; box-shadow: 0 0 8px transparent; }
+.skin-dot.active { border-color: #fff; box-shadow: 0 0 12px #fff8; }
+.skin-dot.locked { opacity: 0.3; cursor: not-allowed; filter: grayscale(1); }
+/* Stats grid */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; font-size: 0.8rem; color: #ff003388; width: 80%; margin: 4px 0; }
+.stats-grid .stat-label { color: #ff003355; font-size: 0.7rem; letter-spacing: 2px; }
+.stats-grid .stat-val { color: #ff0033; font-family: 'VT323', monospace; font-size: 1.3rem; }
 @keyframes flicker { 0%, 94%, 100% { opacity: 1; } 95% { opacity: 0.3; } 97% { opacity: 0.8; } 98% { opacity: 0.1; } 99% { opacity: 1; } }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 @keyframes turbo-glow { 0%,100%{box-shadow:0 0 30px #ff6600aa,inset 0 0 20px #0a0000;} 50%{box-shadow:0 0 60px #ff6600,inset 0 0 20px #0a0000;} }
@@ -63,16 +77,21 @@ canvas { display: block; width: 100%; background: #050000; }
   </div>
   <div id="canvas-wrap">
     <canvas id="c" width="700" height="300"></canvas>
+    <button id="mute-btn" onclick="toggleMute()" title="Mute/Unmute">🔊</button>
     <div id="overlay">
       <canvas id="title-canvas" width="100" height="80" style="display:block;margin:0 auto;"></canvas>
       <h1>$NGMI</h1>
       <div class="sub">SURF THE CHART · AVOID THE RUGS</div>
+      <div class="skin-dots" id="skin-selector"></div>
       <button class="btn" onclick="startGame()">[ PLAY ]</button>
-      <button class="btn btn-lb" onclick="showLeaderboard()">[ LEADERBOARD ]</button>
-      <div class="sub">SPACE / TAP to jump · Double jump allowed</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+        <button class="btn btn-lb" onclick="showLeaderboard()">[ LEADERBOARD ]</button>
+        <button class="btn btn-stats" onclick="showStats()">[ STATS ]</button>
+      </div>
+      <div class="sub">SPACE / TAP / SWIPE UP to jump · Double jump allowed</div>
     </div>
   </div>
-  <div id="controls">[ SPACE / TAP ] JUMP &nbsp;·&nbsp; SURVIVE THE CHART</div>
+  <div id="controls">[ SPACE / TAP / SWIPE↑ ] JUMP &nbsp;·&nbsp; SURVIVE THE CHART</div>
 </div>
 <script>
 // ─── HAPTICS ─────────────────────────────────────────────────────────────────
@@ -87,6 +106,18 @@ const haptic = {
   error()  { try { HapticFeedback?.notificationOccurred('error');   } catch(e){} },
   warn()   { try { HapticFeedback?.notificationOccurred('warning'); } catch(e){} },
 };
+
+// ─── MUTE ────────────────────────────────────────────────────────────────────
+let muted = localStorage.getItem('ngmi_mute') === '1';
+function toggleMute() {
+  muted = !muted;
+  localStorage.setItem('ngmi_mute', muted ? '1' : '0');
+  document.getElementById('mute-btn').textContent = muted ? '🔇' : '🔊';
+  if (muted) stopMusic();
+  else if (state === 'playing') startMusic();
+}
+// Init mute button icon
+document.getElementById('mute-btn').textContent = muted ? '🔇' : '🔊';
 
 // ─── AUDIO ENGINE ────────────────────────────────────────────────────────────
 let actx = null, audioReady = false;
@@ -106,7 +137,7 @@ document.addEventListener('pointerdown', onGesture, { passive: true });
 document.addEventListener('click', onGesture, { passive: true });
 
 function playTone(freq, type, duration, vol, freqEnd) {
-  if (!actx || !audioReady) return;
+  if (!actx || !audioReady || muted) return;
   try {
     const osc = actx.createOscillator(), gain = actx.createGain();
     osc.connect(gain); gain.connect(actx.destination);
@@ -119,7 +150,7 @@ function playTone(freq, type, duration, vol, freqEnd) {
   } catch(e) {}
 }
 function playNoise(duration, vol) {
-  if (!actx || !audioReady) return;
+  if (!actx || !audioReady || muted) return;
   try {
     const bufSize = actx.sampleRate * duration;
     const buf = actx.createBuffer(1, bufSize, actx.sampleRate);
@@ -150,12 +181,12 @@ const SFX = {
 
 // ─── CHIPTUNE MUSIC ──────────────────────────────────────────────────────────
 let musicNodes = [], musicPlaying = false;
-const BASSLINE = [110, 110, 138, 110, 92, 110, 138, 165]; // A2,A2,C#3,A2,F#2,A2,C#3,E3
+const BASSLINE = [110, 110, 138, 110, 92, 110, 138, 165];
 let musicBeatIndex = 0, musicTimer = null;
 
 function playMusicBeat() {
-  if (!actx || !audioReady || !musicPlaying) return;
-  const tempo = turboFrames > 0 ? 0.10 : 0.14; // faster in turbo
+  if (!actx || !audioReady || !musicPlaying || muted) return;
+  const tempo = turboFrames > 0 ? 0.10 : 0.14;
   const freq = BASSLINE[musicBeatIndex % BASSLINE.length];
   musicBeatIndex++;
   try {
@@ -177,7 +208,7 @@ function playMusicBeat() {
 }
 
 function startMusic() {
-  if (musicPlaying) return;
+  if (musicPlaying || muted) return;
   musicPlaying = true;
   musicBeatIndex = 0;
   playMusicBeat();
@@ -216,9 +247,21 @@ async function getMyRank(s) {
   } catch(e) { return null; }
 }
 
-// ─── LOCAL BEST + CLOUD SAVE ─────────────────────────────────────────────────
+// ─── LOCAL STATS ─────────────────────────────────────────────────────────────
 let best = parseInt(localStorage.getItem('ngmi_best') || '0');
+let gamesPlayed = parseInt(localStorage.getItem('ngmi_games_played') || '0');
+let totalScore  = parseInt(localStorage.getItem('ngmi_total_score')  || '0');
+let totalCoins  = parseInt(localStorage.getItem('ngmi_total_coins')  || '0');
 document.getElementById('best').textContent = best;
+
+function updateStats(score, coins) {
+  gamesPlayed++;
+  totalScore += score;
+  totalCoins += coins;
+  localStorage.setItem('ngmi_games_played', gamesPlayed);
+  localStorage.setItem('ngmi_total_score',  totalScore);
+  localStorage.setItem('ngmi_total_coins',  totalCoins);
+}
 
 // Load best from Telegram CloudStorage if available
 (function loadCloudBest() {
@@ -243,16 +286,51 @@ function saveBest(s) {
     best = s;
     localStorage.setItem('ngmi_best', s);
     document.getElementById('best').textContent = best;
-    // Save to Telegram CloudStorage
     try {
       if (tg?.CloudStorage) {
         tg.CloudStorage.setItem('ngmi_best', String(s), ()=>{});
       }
     } catch(e) {}
+    // Unlock skins based on new best
+    renderSkinSelector();
   }
 }
 
+// ─── FROG SKIN SYSTEM ────────────────────────────────────────────────────────
+// Skins: 0=green (default), 1=gold (best>=100), 2=red (best>=200)
+const SKINS = [
+  { id: 0, label: 'Green', body: '#348a34', dark: '#2a5a2a', eyes: '#ff0033', unlockAt: 0 },
+  { id: 1, label: 'Gold',  body: '#ccaa00', dark: '#886600', eyes: '#ff6600', unlockAt: 100 },
+  { id: 2, label: 'Red',   body: '#cc2222', dark: '#881111', eyes: '#ffff00', unlockAt: 200 },
+];
+let selectedSkin = parseInt(localStorage.getItem('ngmi_skin') || '0');
+if (selectedSkin >= SKINS.length) selectedSkin = 0;
+
+function getSkin() { return SKINS[selectedSkin] || SKINS[0]; }
+
+function renderSkinSelector() {
+  const el = document.getElementById('skin-selector');
+  if (!el) return;
+  const colors = ['#348a34','#ccaa00','#cc2222'];
+  el.innerHTML = SKINS.map(s => {
+    const unlocked = best >= s.unlockAt;
+    const active = selectedSkin === s.id;
+    const cls = `skin-dot${active?' active':''}${!unlocked?' locked':''}`;
+    const title = unlocked ? s.label : `${s.label} — unlock at ${s.unlockAt} best`;
+    return `<div class="${cls}" style="background:${colors[s.id]}" title="${title}" onclick="selectSkin(${s.id})"></div>`;
+  }).join('');
+}
+
+function selectSkin(id) {
+  if (best < SKINS[id].unlockAt) return; // locked
+  selectedSkin = id;
+  localStorage.setItem('ngmi_skin', id);
+  renderSkinSelector();
+}
+
+// ─── LEADERBOARD / STATS / START ─────────────────────────────────────────────
 async function showLeaderboard() {
+  stopMusic();
   const ol = document.getElementById('overlay');
   ol.style.display = 'flex';
   ol.innerHTML = `<h1 style="font-size:2rem">LEADERBOARD</h1><div id="lb-wrap"><div class="lb-loading" style="animation:pulse 1s infinite">LOADING...</div></div><button class="btn btn-lb" onclick="showStart()">[ BACK ]</button>`;
@@ -262,11 +340,31 @@ async function showLeaderboard() {
   lbEl.innerHTML = rows.map((r,i) => `<div class="lb-row ${r.username===playerName?'me':''}"><span class="rank">${['🥇','🥈','🥉'][i]||`#${i+1}`}</span><span class="name">${r.username}</span><span class="pts">${r.score} pts</span></div>`).join('');
 }
 
-function showStart() {
-  stopTitleAnimation();
+function showStats() {
+  stopMusic();
+  const avg = gamesPlayed > 0 ? Math.round(totalScore / gamesPlayed) : 0;
   const ol = document.getElementById('overlay');
   ol.style.display = 'flex';
-  ol.innerHTML = `<canvas id="title-canvas" width="100" height="80" style="display:block;margin:0 auto;"></canvas><h1>$NGMI</h1><div class="sub">SURF THE CHART · AVOID THE RUGS</div><button class="btn" onclick="startGame()">[ PLAY ]</button><button class="btn btn-lb" onclick="showLeaderboard()">[ LEADERBOARD ]</button><div class="sub">SPACE / TAP to jump · Double jump allowed</div>`;
+  ol.innerHTML = `
+    <h1 style="font-size:2rem">YOUR STATS</h1>
+    <div class="stats-grid">
+      <div><div class="stat-label">GAMES PLAYED</div><div class="stat-val">${gamesPlayed}</div></div>
+      <div><div class="stat-label">BEST SCORE</div><div class="stat-val">${best}</div></div>
+      <div><div class="stat-label">AVG SCORE</div><div class="stat-val">${avg}</div></div>
+      <div><div class="stat-label">TOTAL COINS</div><div class="stat-val">${totalCoins}</div></div>
+    </div>
+    <div class="sub" style="margin-top:6px">SKINS UNLOCKED: ${SKINS.filter(s=>best>=s.unlockAt).length} / ${SKINS.length}</div>
+    <button class="btn btn-lb" onclick="showStart()">[ BACK ]</button>
+  `;
+}
+
+function showStart() {
+  stopTitleAnimation();
+  stopMusic();
+  const ol = document.getElementById('overlay');
+  ol.style.display = 'flex';
+  ol.innerHTML = `<canvas id="title-canvas" width="100" height="80" style="display:block;margin:0 auto;"></canvas><h1>$NGMI</h1><div class="sub">SURF THE CHART · AVOID THE RUGS</div><div class="skin-dots" id="skin-selector"></div><button class="btn" onclick="startGame()">[ PLAY ]</button><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn btn-lb" onclick="showLeaderboard()">[ LEADERBOARD ]</button><button class="btn btn-stats" onclick="showStats()">[ STATS ]</button></div><div class="sub">SPACE / TAP / SWIPE UP to jump · Double jump allowed</div>`;
+  renderSkinSelector();
   startTitleAnimation();
 }
 
@@ -284,20 +382,18 @@ function startTitleAnimation() {
     const ty = 50 - bounce;
     const squishX = bounce < 3 ? 1.2 : 1.0;
     const squishY = bounce < 3 ? 0.8 : 1.0;
+    const sk = getSkin();
     tx.save();
     tx.translate(50, ty);
     tx.scale(squishX, squishY);
-    // Body
-    tx.fillStyle = '#2a5a2a';
+    tx.fillStyle = sk.dark;
     tx.beginPath(); tx.ellipse(0, 4, 17, 14, 0, 0, Math.PI*2); tx.fill();
-    tx.fillStyle = '#348a34';
+    tx.fillStyle = sk.body;
     tx.beginPath(); tx.ellipse(0, 0, 15, 12, 0, 0, Math.PI*2); tx.fill();
-    // Eyes
     [-6,6].forEach(ox => {
       tx.fillStyle='#111'; tx.beginPath(); tx.ellipse(ox,-5,5,5,0,0,Math.PI*2); tx.fill();
-      tx.fillStyle='#ff0033'; tx.beginPath(); tx.ellipse(ox,-5,3,3,0,0,Math.PI*2); tx.fill();
+      tx.fillStyle=sk.eyes; tx.beginPath(); tx.ellipse(ox,-5,3,3,0,0,Math.PI*2); tx.fill();
     });
-    // Smile
     tx.strokeStyle='#1a3a1a'; tx.lineWidth=2;
     tx.beginPath(); tx.arc(0,6,4,Math.PI+0.3,-0.3); tx.stroke();
     tx.restore();
@@ -308,7 +404,7 @@ function startTitleAnimation() {
 function stopTitleAnimation() {
   if (titleAnimId) { cancelAnimationFrame(titleAnimId); titleAnimId = null; }
 }
-// Start title animation immediately
+renderSkinSelector();
 startTitleAnimation();
 
 // ─── TELEGRAM SHARE ───────────────────────────────────────────────────────────
@@ -316,6 +412,39 @@ function shareScore(s) {
   const text = `I scored ${s} pts in $NGMI Chart Surfer! Can you beat me? Play: https://t.me/NGMI_TON_BOT`;
   const url = `https://t.me/share/url?url=https://t.me/NGMI_TON_BOT&text=${encodeURIComponent(text)}`;
   window.open(url, '_blank');
+}
+
+// ─── DAY/NIGHT CYCLE ─────────────────────────────────────────────────────────
+// Phase goes 0→1 over 60s, then 1→0 over next 60s (oscillates)
+// 0 = day (red theme), 1 = night (blue theme)
+let dayNightPhase = 0; // 0=day, 1=night
+
+function lerpColor(a, b, t) {
+  // a,b are [r,g,b], returns hex
+  const r = Math.round(a[0] + (b[0]-a[0])*t);
+  const g = Math.round(a[1] + (b[1]-a[1])*t);
+  const bl = Math.round(a[2] + (b[2]-a[2])*t);
+  return `rgb(${r},${g},${bl})`;
+}
+function updateDayNight(frameNum) {
+  // 60fps * 60s = 3600 frames per half-cycle
+  const cycleLen = 3600;
+  const cycle = (frameNum % (cycleLen * 2)) / cycleLen;
+  dayNightPhase = cycle <= 1 ? cycle : 2 - cycle;
+}
+
+function getDayNightColors() {
+  // Day: red theme, Night: blue theme
+  const gridAlpha = 0.04;
+  const gridR = Math.round(255 * (1 - dayNightPhase));
+  const gridG = 0;
+  const gridB = Math.round(255 * dayNightPhase);
+  const gridHex = `rgba(${gridR},${gridG},${gridB},${gridAlpha})`;
+  // Chart line color
+  const chartR = Math.round(255 * (1 - dayNightPhase));
+  const chartG = Math.round(100 * dayNightPhase);
+  const chartB = Math.round(255 * dayNightPhase);
+  return { gridHex, chartR, chartG, chartB };
 }
 
 // ─── GAME STATE ───────────────────────────────────────────────────────────────
@@ -331,8 +460,8 @@ let shakeFrames=0, turboFrames=0, shieldActive=false;
 const MILESTONES = [25, 50, 100, 200];
 let milestonesDone = new Set();
 let hardMode = parseInt(localStorage.getItem('ngmi_hardmode')||'0') === 1;
+let sessionCoins = 0; // coins collected this run
 
-// New state variables
 let bossSpawned = false;
 let dodgeStreak = 0, streakFrames = 0;
 let newBestShown = false;
@@ -347,8 +476,9 @@ function initChart() { chartPoints=[]; for(let x=0;x<=W+20;x+=5) chartPoints.pus
 function startGame() {
   if (!audioReady) initAudioSync();
   stopTitleAnimation();
+  stopMusic();
   document.getElementById('overlay').style.display = 'none';
-  state='playing'; score=0; frame=0; speed=4; combo=0;
+  state='playing'; score=0; frame=0; speed=4; combo=0; sessionCoins=0;
   shakeFrames=0; turboFrames=0; shieldActive=false;
   milestonesDone = new Set();
   bossSpawned = false;
@@ -374,7 +504,6 @@ function jump() {
     frog.jumpCount === 0 ? SFX.jump() : SFX.jump2();
     haptic.light();
     frog.jumpCount++;
-    // Stretch on jump
     frogScale.x = 0.75; frogScale.y = 1.3; frogScale.squashFrames = 0;
     spawnParticles(frog.x+frog.w/2, frog.y+frog.h, '#ff0033', 6);
   }
@@ -382,6 +511,19 @@ function jump() {
 
 document.addEventListener('keydown', e => { if (e.code==='Space'){e.preventDefault();jump();} });
 canvas.addEventListener('pointerdown', e => { e.preventDefault(); jump(); });
+
+// ─── SWIPE-UP GESTURE ────────────────────────────────────────────────────────
+let swipeTouchStartY = null;
+canvas.addEventListener('touchstart', e => {
+  swipeTouchStartY = e.touches[0].clientY;
+}, { passive: true });
+canvas.addEventListener('touchend', e => {
+  if (swipeTouchStartY !== null) {
+    const dy = swipeTouchStartY - e.changedTouches[0].clientY;
+    if (dy > 30) { jump(); } // swipe up threshold 30px
+    swipeTouchStartY = null;
+  }
+}, { passive: true });
 
 // ─── PARTICLES / MESSAGES ────────────────────────────────────────────────────
 function spawnParticles(x,y,color,n) {
@@ -393,7 +535,7 @@ function showMsg(text,x,y,color,big) {
 
 // ─── COIN SPAWNER ────────────────────────────────────────────────────────────
 function spawnCoinCluster() {
-  const count = 3 + Math.floor(Math.random() * 3); // 3-5
+  const count = 3 + Math.floor(Math.random() * 3);
   const baseX = W + 30;
   const baseY = GROUND - 60 - Math.random() * 50;
   for (let i = 0; i < count; i++) {
@@ -414,7 +556,7 @@ function spawnObstacle() {
   const types = hardMode ? ['rug','honeypot','dev','sec','sec'] : ['rug','honeypot','dev'];
   const type = types[Math.floor(Math.random()*types.length)];
   const h = 28+Math.random()*32;
-  const bobs = Math.random() < 0.3; // 30% chance to bob
+  const bobs = Math.random() < 0.3;
   const baseY = GROUND+frog.h-h;
   obstacles.push({x:W+20,y:baseY,baseY,w:22,h,type,passed:false,bobs,bobPhase:Math.random()*Math.PI*2});
   const base = hardMode ? 45 : 65;
@@ -438,9 +580,9 @@ function spawnPowerup() {
 
 // ─── DRAW FUNCTIONS ──────────────────────────────────────────────────────────
 function drawFrog(dead) {
+  const sk = getSkin();
   const cx=frog.x+frog.w/2, cy=frog.y+frog.h/2;
 
-  // Shield aura
   if (shieldActive && !dead) {
     ctx.save();
     const t = Date.now()/300;
@@ -451,25 +593,22 @@ function drawFrog(dead) {
     ctx.beginPath(); ctx.ellipse(cx,cy,22,22,0,0,Math.PI*2); ctx.stroke();
     ctx.restore();
   }
-  // Turbo trail
   if (turboFrames > 0 && !dead) {
     ctx.fillStyle = `rgba(255,100,0,${0.15 * (turboFrames/180)})`;
     ctx.beginPath(); ctx.ellipse(cx-8,cy,12,10,0,0,Math.PI*2); ctx.fill();
   }
 
-  // Squash/stretch + tilt
   ctx.save();
   ctx.translate(cx, cy);
-  // Tilt during turbo
   if (turboFrames > 0 && !dead) ctx.rotate(-0.2);
   ctx.scale(frogScale.x, frogScale.y);
   ctx.translate(-cx, -cy);
 
-  ctx.fillStyle=dead?'#334433':'#2a5a2a';
+  ctx.fillStyle = dead ? '#334433' : sk.dark;
   ctx.beginPath(); ctx.ellipse(cx,cy+4,17,14,0,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle=dead?'#3a5a3a':(turboFrames>0?'#5a8a2a':'#348a34');
+  ctx.fillStyle = dead ? '#3a5a3a' : (turboFrames>0 ? '#5a8a2a' : sk.body);
   ctx.beginPath(); ctx.ellipse(cx,cy,15,12,0,0,Math.PI*2); ctx.fill();
-  const ec=dead?'#555':'#ff0033';
+  const ec = dead ? '#555' : sk.eyes;
   [-6,6].forEach(ox=>{
     ctx.fillStyle='#111'; ctx.beginPath(); ctx.ellipse(cx+ox,cy-5,5,5,0,0,Math.PI*2); ctx.fill();
     ctx.fillStyle=ec;     ctx.beginPath(); ctx.ellipse(cx+ox,cy-5,3,3,0,0,Math.PI*2); ctx.fill();
@@ -484,10 +623,9 @@ function drawFrog(dead) {
   } else {
     ctx.beginPath(); ctx.arc(cx,cy+6,4,Math.PI+0.3,-0.3); ctx.stroke();
   }
-  ctx.strokeStyle=dead?'#334433':'#2a5a2a'; ctx.lineWidth=3;
+  ctx.strokeStyle=dead?'#334433':sk.dark; ctx.lineWidth=3;
   ctx.beginPath(); ctx.moveTo(cx-10,cy+10); ctx.lineTo(cx-14,cy+17); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(cx+10,cy+10); ctx.lineTo(cx+14,cy+17); ctx.stroke();
-
   ctx.restore();
 }
 
@@ -549,7 +687,8 @@ function drawPowerup(p) {
 
 function drawBgParallax() {
   bgOffset = (bgOffset + speed * 0.2) % 80;
-  ctx.strokeStyle='#ff000308'; ctx.lineWidth=1;
+  const { chartR, chartG, chartB } = getDayNightColors();
+  ctx.strokeStyle=`rgba(${chartR},${chartG},${chartB},0.03)`; ctx.lineWidth=1;
   for(let x=-bgOffset; x<W; x+=80){
     ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
   }
@@ -558,19 +697,34 @@ function drawBgParallax() {
 function drawChart() {
   chartOffset += speed*0.5;
   if(chartOffset>=5){ chartOffset=0; chartPoints.shift(); chartPoints.push(noise(chartPoints.length*5*0.01+frame*0.005)*25+GROUND-5); }
+  const { chartR, chartG, chartB } = getDayNightColors();
   ctx.beginPath();
   chartPoints.forEach((pt,i)=>{ const x=i*5-chartOffset; i===0?ctx.moveTo(x,pt):ctx.lineTo(x,pt); });
-  ctx.strokeStyle = turboFrames>0 ? '#ff660044' : '#ff003344';
+  if (turboFrames > 0) {
+    ctx.strokeStyle = '#ff660044';
+  } else {
+    ctx.strokeStyle = `rgba(${chartR},${chartG},${chartB},0.44)`;
+  }
   ctx.lineWidth=1.5; ctx.stroke();
   ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath();
   ctx.fillStyle='#ff000606'; ctx.fill();
 }
 
 function drawGround() {
+  const { chartR, chartG, chartB } = getDayNightColors();
   ctx.fillStyle='#ff000412'; ctx.fillRect(0,GROUND+frog.h,W,H-GROUND-frog.h);
-  ctx.strokeStyle = turboFrames>0 ? '#ff660066' : '#ff003344';
+  ctx.strokeStyle = turboFrames>0 ? '#ff660066' : `rgba(${chartR},${chartG},${chartB},0.44)`;
   ctx.lineWidth=1;
   ctx.beginPath(); ctx.moveTo(0,GROUND+frog.h); ctx.lineTo(W,GROUND+frog.h); ctx.stroke();
+}
+
+function drawBgDayNight() {
+  // Tint the canvas background slightly based on day/night
+  if (dayNightPhase > 0.05) {
+    const alpha = dayNightPhase * 0.04;
+    ctx.fillStyle = `rgba(0,0,80,${alpha})`;
+    ctx.fillRect(0,0,W,H);
+  }
 }
 
 function drawCombo() {
@@ -585,17 +739,14 @@ function drawCombo() {
 }
 
 function drawMilestoneBar() {
-  // Find next milestone
   const nextMs = MILESTONES.find(m => score < m) || MILESTONES[MILESTONES.length-1];
   const prevMs = MILESTONES[MILESTONES.indexOf(nextMs)-1] || 0;
   const progress = Math.min((score - prevMs) / (nextMs - prevMs), 1);
-  // Draw bar at bottom
   ctx.fillStyle = '#ff003322';
   ctx.fillRect(0, H-4, W, 4);
   const barColor = streakFrames > 0 ? '#ffaa00' : '#ff0033';
   ctx.fillStyle = barColor;
   ctx.fillRect(0, H-4, W * progress, 4);
-  // Glow
   ctx.shadowColor = barColor; ctx.shadowBlur = 4;
   ctx.fillRect(0, H-4, W * progress, 4);
   ctx.shadowBlur = 0;
@@ -635,8 +786,9 @@ function checkMilestone(s) {
 async function gameOver() {
   state='dead'; frog.dead=true;
   SFX.gameover(); haptic.error(); triggerShake();
-  stopMusic();
+  stopMusic(); // FIX #1: ensure music stops on game over
   saveBest(score);
+  updateStats(score, sessionCoins);
   await submitScore(score);
   const verdict = score<10?'STAY POOR':score<30?'CLASSIC NGMI':score<60?'ALMOST WAGMI':score<100?'BASED FROG':'LEGEND ANON';
   if(score>=50) { localStorage.setItem('ngmi_hardmode','1'); hardMode=true; }
@@ -648,10 +800,11 @@ async function gameOver() {
       : '<div class="lb-loading">BE THE FIRST</div>';
     const rankTxt = myRank ? `<div class="rank-badge">YOUR GLOBAL RANK: #${myRank}</div>` : '';
     const hardTxt = hardMode ? `<div class="sub" style="color:#0055ff88">⚡ HARD MODE ACTIVE</div>` : (score>=40?`<div class="sub" style="color:#ff660066">REACH 50 TO UNLOCK HARD MODE</div>`:'');
+    const coinsTxt = sessionCoins > 0 ? `<div class="sub" style="color:#ffcc0077">🪙 ${sessionCoins} COINS THIS RUN</div>` : '';
     const ol = document.getElementById('overlay');
     ol.style.display='flex';
     const finalScore = score;
-    ol.innerHTML=`<h1 style="font-size:2.4rem">RUGGED</h1><div class="big-score">${finalScore} pts</div><div class="verdict">${verdict}</div>${rankTxt}${hardTxt}<div id="lb-wrap" style="width:90%">${lbHtml}</div><button class="btn" onclick="startGame()">[ TRY AGAIN ]</button><button class="btn btn-share" onclick="shareScore(${finalScore})">[ SHARE ]</button><button class="btn btn-lb" onclick="showLeaderboard()">[ FULL LB ]</button>`;
+    ol.innerHTML=`<h1 style="font-size:2.4rem">RUGGED</h1><div class="big-score">${finalScore} pts</div><div class="verdict">${verdict}</div>${rankTxt}${coinsTxt}${hardTxt}<div id="lb-wrap" style="width:90%">${lbHtml}</div><button class="btn" onclick="startGame()">[ TRY AGAIN ]</button><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button class="btn btn-share" onclick="shareScore(${finalScore})">[ SHARE ]</button><button class="btn btn-stats" onclick="showStats()">[ STATS ]</button><button class="btn btn-lb" onclick="showLeaderboard()">[ FULL LB ]</button></div>`;
   }, 700);
 }
 
@@ -661,7 +814,6 @@ function loop() {
   requestAnimationFrame(loop);
   frame++;
 
-  // Streak bonus: double frame increment
   if (streakFrames > 0) { frame++; streakFrames--; }
 
   score = Math.floor(frame/6);
@@ -669,18 +821,16 @@ function loop() {
   speed = baseSpeed + score*0.025 + (turboFrames>0?3:0);
   document.getElementById('score').textContent = score;
 
-  // NEW BEST flash
   if (!newBestShown && score > best && best > 0) {
     newBestShown = true;
     showMsg('NEW BEST!', W/2, H/2-50, '#ffcc00', true);
   }
 
   checkMilestone(score);
+  updateDayNight(frame);
 
-  // Boss wave at score 75
   if (!bossSpawned && score >= 75) spawnBoss();
 
-  // Shake offset
   let sx=0, sy=0;
   if(shakeFrames>0){ sx=(Math.random()-0.5)*6; sy=(Math.random()-0.5)*4; shakeFrames--; }
 
@@ -689,11 +839,11 @@ function loop() {
   ctx.clearRect(-10,-10,W+20,H+20);
   ctx.fillStyle='#050000'; ctx.fillRect(-10,-10,W+20,H+20);
 
+  drawBgDayNight();
   drawBgParallax();
   drawChart();
   drawGround();
 
-  // Turbo overlay
   if(turboFrames>0){
     turboFrames--;
     ctx.fillStyle=`rgba(255,100,0,${0.04*(turboFrames/180)})`;
@@ -708,19 +858,16 @@ function loop() {
   const onGround = frog.y >= GROUND;
   if(onGround){
     frog.y=GROUND; frog.vy=0; frog.jumpCount=0;
-    // Landing squash
     if (!wasOnGround) {
       frogScale.x = 1.3; frogScale.y = 0.7; frogScale.squashFrames = 6;
       haptic.light();
     }
   }
 
-  // Update squash/stretch
   if (frogScale.squashFrames > 0) {
     frogScale.squashFrames--;
     if (frogScale.squashFrames === 0) { frogScale.x = 1; frogScale.y = 1; }
   } else if (!onGround && frogScale.x !== 0.75) {
-    // Smoothly return to stretch when in air
     if (frogScale.squashFrames === 0 && frog.vy < 0) {
       frogScale.x = 0.75; frogScale.y = 1.3;
     } else if (frog.vy > 0) {
@@ -728,7 +875,6 @@ function loop() {
     }
   }
 
-  // Moving obstacles (bob)
   for (const o of obstacles) {
     if (o.bobs) o.y = o.baseY + Math.sin(frame * 0.08 + o.bobPhase) * 18;
   }
@@ -742,18 +888,17 @@ function loop() {
     if(!o.passed && o.x+o.w<frog.x){
       o.passed=true;
       dodgeStreak++;
-      // Boss dodge bonus
       if (o.isBoss) {
-        frame += 120; // +20 pts equivalent
+        frame += 120;
         showMsg('+20 BONUS! BOSS DODGED!', W/2, H/2-40, '#ff0033', true);
         haptic.success();
       } else {
+        // FIX #5: combo only increments on dodge, never resets on candle collect
         combo++; SFX.dodge(); haptic.medium();
         const pts = streakFrames > 0 ? 2 : 1;
         if (pts > 1) showMsg('+x2', o.x, o.y-10, '#ffaa00');
       }
       spawnParticles(o.x,o.y,'#fff',4);
-      // Streak check
       if (dodgeStreak >= 10 && streakFrames === 0) {
         streakFrames = 300;
         SFX.streak(); haptic.success();
@@ -771,7 +916,7 @@ function loop() {
     }
   }
 
-  // Candles
+  // Candles (FIX #5: candle collection does NOT reset combo)
   if(--nextCandle<=0) spawnCandle();
   candles = candles.filter(c=>c.x>-50&&!c.collected);
   for(const c of candles){
@@ -780,6 +925,7 @@ function loop() {
       c.collected=true; SFX.collect(); haptic.light();
       spawnParticles(c.x+c.w/2,c.y+c.h/2,'#00ff66',10);
       const bonus=Math.max(combo,1); frame+=bonus*5;
+      // combo is intentionally NOT reset here — only resets on shield break or death
       showMsg(['+BASED','+PUMP','+GREEN','+WAGMI'][Math.floor(Math.random()*4)],c.x+c.w/2,c.y-10,'#00ff66');
     }
   }
@@ -793,7 +939,8 @@ function loop() {
     if(circleRect(coin.x,coin.y,coin.r,frog.x,frog.y,frog.w,frog.h)){
       coin.collected=true;
       SFX.coinTick(); haptic.light();
-      frame += 12; // +2 pts
+      frame += 12;
+      sessionCoins++;
       spawnParticles(coin.x,coin.y,'#ffcc00',5);
       showMsg('+2',coin.x,coin.y-10,'#ffcc00');
     }
@@ -859,6 +1006,12 @@ function loop() {
   if(dodgeStreak>0 && dodgeStreak<10){
     ctx.fillStyle='#ffffff44'; ctx.font='10px "Share Tech Mono"'; ctx.textAlign='right';
     ctx.fillText(`STREAK ${dodgeStreak}/10`, W-8, 34);
+  }
+  // Day/Night indicator
+  if (dayNightPhase > 0.1) {
+    ctx.fillStyle = `rgba(100,150,255,${dayNightPhase * 0.6})`;
+    ctx.font = '10px "Share Tech Mono"'; ctx.textAlign='left';
+    ctx.fillText(dayNightPhase > 0.5 ? '🌙 NIGHT' : '🌅 DUSK', 8, H - 10);
   }
 
   drawCombo();
