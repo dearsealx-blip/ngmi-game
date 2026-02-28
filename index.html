@@ -283,6 +283,15 @@ function updateStreak() {
   else { streakCount = 1; streakLast = today; }
   localStorage.setItem('ngmi_streak_count', streakCount);
   localStorage.setItem('ngmi_streak_last', streakLast);
+  // Supabase sync (non-blocking)
+  (function() {
+    const today = getDailyDateStr();
+    const bestStreak = Math.max(streakCount, parseInt(localStorage.getItem('ngmi_best_streak')||'0'));
+    localStorage.setItem('ngmi_best_streak', bestStreak);
+    sbFetch('/rest/v1/streaks', 'POST', {
+      username: myRefCode, streak_count: streakCount, last_played: today, best_streak: bestStreak
+    }, { 'Prefer': 'resolution=merge-duplicates' }).catch(()=>{});
+  })();
 }
 function getStreakMultiplier() { return Math.min(1 + streakCount * 0.05, 2); }
 function renderStreakDisplay() {
@@ -317,6 +326,11 @@ function unlockAchievement(id) {
   if (hasAchievement(id)) return;
   achievements.push(id);
   localStorage.setItem('ngmi_achievements', JSON.stringify(achievements));
+  // Supabase sync (non-blocking)
+  const defSync = ACHIEVEMENT_DEFS.find(a=>a.id===id);
+  if (defSync) sbFetch('/rest/v1/achievements', 'POST', {
+    username: myRefCode, achievement_id: id, achievement_name: defSync.name
+  }).catch(()=>{});
   const def = ACHIEVEMENT_DEFS.find(a=>a.id===id);
   if (def && state === 'playing') {
     showMsg(`🏆 ACHIEVEMENT: ${def.name}`, W/2, H/2-50, '#cc44ff', true);
@@ -357,6 +371,14 @@ function renderReferralDisplay() {
 const SUPABASE_URL  = 'https://rfixnwwzkvkzcfidjzer.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmaXhud3d6a3ZremNmaWRqemVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNDI4MTYsImV4cCI6MjA4NzgxODgxNn0.PnaFSonJyViAFRmuclgWIcEaoLHltotbbFheMWDzS84';
 const SB_HEADERS = { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` };
+
+async function sbFetch(path, method='GET', body=null, extraHeaders={}) {
+  const headers = { ...SB_HEADERS, ...extraHeaders };
+  if (body) headers['Content-Type'] = 'application/json';
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(`${SUPABASE_URL}${path}`, opts);
+}
 
 async function submitScore(s) {
   try {
@@ -1376,6 +1398,69 @@ function loop() {
   drawCombo();
   ctx.restore();
 }
+
+// ─── SUPABASE SYNC ON LOAD ───────────────────────────────────────────────────
+async function syncFromSupabase() {
+  try {
+    // 1. Sync streak
+    const sRes = await sbFetch(`/rest/v1/streaks?username=eq.${encodeURIComponent(myRefCode)}&select=streak_count,last_played,best_streak`);
+    if (sRes.ok) {
+      const sData = await sRes.json();
+      if (sData && sData.length > 0) {
+        const remote = sData[0];
+        const remoteCount = remote.streak_count || 0;
+        const remoteLastPlayed = remote.last_played || '';
+        // Use higher streak_count; if remote is higher also adopt last_played
+        if (remoteCount > streakCount) {
+          streakCount = remoteCount;
+          streakLast = remoteLastPlayed;
+          localStorage.setItem('ngmi_streak_count', streakCount);
+          localStorage.setItem('ngmi_streak_last', streakLast);
+        }
+        const remoteBest = remote.best_streak || 0;
+        const localBest = parseInt(localStorage.getItem('ngmi_best_streak')||'0');
+        if (remoteBest > localBest) localStorage.setItem('ngmi_best_streak', remoteBest);
+        renderStreakDisplay();
+      }
+    }
+  } catch(e) {}
+
+  try {
+    // 2. Sync achievements
+    const aRes = await sbFetch(`/rest/v1/achievements?username=eq.${encodeURIComponent(myRefCode)}&select=achievement_id`);
+    if (aRes.ok) {
+      const aData = await aRes.json();
+      if (aData && aData.length > 0) {
+        const remoteIds = aData.map(a => a.achievement_id);
+        let changed = false;
+        for (const rid of remoteIds) {
+          if (!achievements.includes(rid)) {
+            achievements.push(rid);
+            changed = true;
+          }
+        }
+        if (changed) localStorage.setItem('ngmi_achievements', JSON.stringify(achievements));
+      }
+    }
+  } catch(e) {}
+
+  try {
+    // 3. Sync referral (insert once)
+    const referrerVal = localStorage.getItem('ngmi_referrer');
+    if (referrerVal && !localStorage.getItem('ngmi_referral_synced')) {
+      const rRes = await sbFetch('/rest/v1/referrals', 'POST', {
+        referrer: referrerVal, referred: myRefCode
+      });
+      if (rRes.ok || rRes.status === 409) {
+        localStorage.setItem('ngmi_referral_synced', '1');
+      }
+    }
+  } catch(e) {}
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  syncFromSupabase().catch(()=>{});
+});
 </script>
 </body>
 </html>
