@@ -67,6 +67,63 @@ canvas { display: block; width: 100%; background: #050000; }
   <div id="controls">[ SPACE / TAP ] JUMP &nbsp;·&nbsp; SURVIVE THE CHART</div>
 </div>
 <script>
+// ─── AUDIO ENGINE ───────────────────────────────────────────────────────────
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let actx = null;
+function getACtx() {
+  if (!actx) actx = new AudioCtx();
+  if (actx.state === 'suspended') actx.resume();
+  return actx;
+}
+
+function playTone(freq, type, duration, vol, freqEnd) {
+  try {
+    const ac = getACtx();
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain); gain.connect(ac.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ac.currentTime);
+    if (freqEnd !== undefined) osc.frequency.exponentialRampToValueAtTime(freqEnd, ac.currentTime + duration);
+    gain.gain.setValueAtTime(vol, ac.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + duration);
+    osc.start(ac.currentTime);
+    osc.stop(ac.currentTime + duration);
+  } catch(e) {}
+}
+
+function playNoise(duration, vol) {
+  try {
+    const ac = getACtx();
+    const bufSize = ac.sampleRate * duration;
+    const buf = ac.createBuffer(1, bufSize, ac.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1);
+    const src = ac.createBufferSource();
+    const gain = ac.createGain();
+    src.buffer = buf;
+    src.connect(gain); gain.connect(ac.destination);
+    gain.gain.setValueAtTime(vol, ac.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + duration);
+    src.start();
+  } catch(e) {}
+}
+
+const SFX = {
+  jump()       { playTone(220, 'square', 0.12, 0.18, 440); },
+  jump2()      { playTone(330, 'square', 0.10, 0.12, 550); playTone(180, 'square', 0.10, 0.06, 90); },
+  collect()    { playTone(523, 'square', 0.06, 0.12); playTone(659, 'square', 0.06, 0.12, 880); setTimeout(()=>playTone(880,'square',0.1,0.15,1047), 60); },
+  dodge()      { playTone(150, 'square', 0.08, 0.08, 200); },
+  gameover()   {
+    playTone(440, 'sawtooth', 0.18, 0.2, 110);
+    setTimeout(()=>playTone(330,'sawtooth',0.16,0.2,82), 180);
+    setTimeout(()=>playTone(220,'sawtooth',0.14,0.2,55), 360);
+    setTimeout(()=>playNoise(0.4, 0.15), 520);
+  },
+  start()      { [523,659,784,1047].forEach((f,i)=>setTimeout(()=>playTone(f,'square',0.1,0.12),i*70)); },
+};
+// ────────────────────────────────────────────────────────────────────────────
+
 const SUPABASE_URL='https://rfixnwwzkvkzcfidjzer.supabase.co';
 const SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmaXhud3d6a3ZremNmaWRqemVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNDI4MTYsImV4cCI6MjA4NzgxODgxNn0.PnaFSonJyViAFRmuclgWIcEaoLHltotbbFheMWDzS84';
 const tg=window.Telegram?.WebApp;
@@ -85,8 +142,8 @@ let nextObstacle=90,nextCandle=70,noiseState=0;
 const frog={x:90,y:GROUND,vy:0,w:34,h:34,jumpCount:0,dead:false};
 function noise(x){return Math.sin(x*7.3+noiseState)*0.5+Math.sin(x*3.1+noiseState*0.7)*0.5;}
 function initChart(){chartPoints=[];for(let x=0;x<=W+20;x+=5)chartPoints.push(noise(x*0.01)*28+GROUND-8);}
-function startGame(){document.getElementById('overlay').style.display='none';state='playing';score=0;frame=0;speed=4;combo=0;Object.assign(frog,{y:GROUND,vy:0,dead:false,jumpCount:0});obstacles=[];candles=[];particles=[];messages=[];nextObstacle=100;nextCandle=80;noiseState=Math.random()*1000;initChart();requestAnimationFrame(loop);}
-function jump(){if(state!=='playing')return;if(frog.jumpCount<2){frog.vy=JUMP;frog.jumpCount++;spawnParticles(frog.x+frog.w/2,frog.y+frog.h,'#ff0033',6);}}
+function startGame(){document.getElementById('overlay').style.display='none';state='playing';score=0;frame=0;speed=4;combo=0;Object.assign(frog,{y:GROUND,vy:0,dead:false,jumpCount:0});obstacles=[];candles=[];particles=[];messages=[];nextObstacle=100;nextCandle=80;noiseState=Math.random()*1000;initChart();SFX.start();requestAnimationFrame(loop);}
+function jump(){if(state!=='playing')return;if(frog.jumpCount<2){frog.vy=JUMP;frog.jumpCount===0?SFX.jump():SFX.jump2();frog.jumpCount++;spawnParticles(frog.x+frog.w/2,frog.y+frog.h,'#ff0033',6);}}
 document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();jump();}});
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();jump();});
 function spawnParticles(x,y,color,n){for(let i=0;i<n;i++)particles.push({x,y,vx:(Math.random()-.5)*4,vy:Math.random()*-3-1,life:1,color,size:Math.random()*4+2});}
@@ -99,8 +156,8 @@ function drawCandle(c){ctx.fillStyle='#00ff6618';ctx.fillRect(c.x,c.y,c.w,c.h);c
 function drawChart(){chartOffset+=speed*0.5;if(chartOffset>=5){chartOffset=0;chartPoints.shift();chartPoints.push(noise(chartPoints.length*5*0.01+frame*0.005)*25+GROUND-5);}ctx.beginPath();chartPoints.forEach((pt,i)=>{const x=i*5-chartOffset;i===0?ctx.moveTo(x,pt):ctx.lineTo(x,pt);});ctx.strokeStyle='#ff003344';ctx.lineWidth=1.5;ctx.stroke();ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle='#ff000606';ctx.fill();}
 function drawGround(){ctx.fillStyle='#ff000412';ctx.fillRect(0,GROUND+frog.h,W,H-GROUND-frog.h);ctx.strokeStyle='#ff003344';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,GROUND+frog.h);ctx.lineTo(W,GROUND+frog.h);ctx.stroke();}
 function collision(a,b){const p=6;return a.x+p<b.x+b.w&&a.x+a.w-p>b.x&&a.y+p<b.y+b.h&&a.y+a.h-p>b.y;}
-async function gameOver(){state='dead';frog.dead=true;spawnParticles(frog.x+frog.w/2,frog.y+frog.h/2,'#ff0033',20);if(score>best)best=score;document.getElementById('best').textContent=best;await submitScore(score);const verdict=score<10?'STAY POOR':score<30?'CLASSIC NGMI':score<60?'ALMOST WAGMI':score<100?'BASED FROG':'LEGEND ANON';setTimeout(async()=>{const rows=await getLeaderboard();const lbHtml=rows.length?rows.map((r,i)=>`<div class="lb-row ${r.username===playerName?'me':''}"><span class="rank">${['🥇','🥈','🥉'][i]||'#'+(i+1)}</span><span class="name">${r.username}</span><span class="pts">${r.score}</span></div>`).join(''):'<div class="lb-loading">BE THE FIRST</div>';const ol=document.getElementById('overlay');ol.style.display='flex';ol.innerHTML=`<h1 style="font-size:2.4rem">RUGGED</h1><div class="big-score">${score} pts</div><div class="verdict">${verdict}</div><div id="lb-wrap" style="width:90%">${lbHtml}</div><button class="btn" onclick="startGame()">[ TRY AGAIN ]</button><button class="btn btn-lb" onclick="showLeaderboard()">[ FULL LB ]</button>`;},700);}
-function loop(){if(state!=='playing')return;requestAnimationFrame(loop);frame++;score=Math.floor(frame/6);speed=4+score*0.025;document.getElementById('score').textContent=score;ctx.clearRect(0,0,W,H);ctx.fillStyle='#050000';ctx.fillRect(0,0,W,H);drawChart();drawGround();frog.vy+=GRAVITY;frog.y+=frog.vy;if(frog.y>=GROUND){frog.y=GROUND;frog.vy=0;frog.jumpCount=0;}if(--nextObstacle<=0)spawnObstacle();obstacles=obstacles.filter(o=>o.x>-50);for(const o of obstacles){o.x-=speed;drawObstacle(o);if(!o.passed&&o.x+o.w<frog.x){o.passed=true;combo++;spawnParticles(o.x,o.y,'#fff',4);}if(collision(frog,o)){gameOver();return;}}if(--nextCandle<=0)spawnCandle();candles=candles.filter(c=>c.x>-50&&!c.collected);for(const c of candles){c.x-=speed;drawCandle(c);if(collision(frog,c)){c.collected=true;spawnParticles(c.x+c.w/2,c.y+c.h/2,'#00ff66',10);const bonus=Math.max(combo,1);frame+=bonus*5;showMsg(['+BASED','+PUMP','+GREEN','+WAGMI'][Math.floor(Math.random()*4)],c.x+c.w/2,c.y-10,'#00ff66');}}particles=particles.filter(p=>p.life>0);for(const p of particles){ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life-=0.04;}ctx.globalAlpha=1;messages=messages.filter(m=>m.life>0);for(const m of messages){ctx.globalAlpha=m.life;ctx.fillStyle=m.color;ctx.font='16px "VT323"';ctx.textAlign='center';ctx.fillText(m.text,m.x,m.y);m.y+=m.vy;m.life-=0.025;}ctx.globalAlpha=1;drawFrog(false);ctx.fillStyle='#ff003366';ctx.font='11px "Share Tech Mono"';ctx.textAlign='right';ctx.fillText(`SPD ${speed.toFixed(1)}x`,W-8,18);if(combo>1){ctx.fillStyle='#ffaa00';ctx.font='14px "VT323"';ctx.fillText(`x${combo} COMBO`,W-8,34);}}
+async function gameOver(){state='dead';frog.dead=true;SFX.gameover();spawnParticles(frog.x+frog.w/2,frog.y+frog.h/2,'#ff0033',20);if(score>best)best=score;document.getElementById('best').textContent=best;await submitScore(score);const verdict=score<10?'STAY POOR':score<30?'CLASSIC NGMI':score<60?'ALMOST WAGMI':score<100?'BASED FROG':'LEGEND ANON';setTimeout(async()=>{const rows=await getLeaderboard();const lbHtml=rows.length?rows.map((r,i)=>`<div class="lb-row ${r.username===playerName?'me':''}"><span class="rank">${['🥇','🥈','🥉'][i]||'#'+(i+1)}</span><span class="name">${r.username}</span><span class="pts">${r.score}</span></div>`).join(''):'<div class="lb-loading">BE THE FIRST</div>';const ol=document.getElementById('overlay');ol.style.display='flex';ol.innerHTML=`<h1 style="font-size:2.4rem">RUGGED</h1><div class="big-score">${score} pts</div><div class="verdict">${verdict}</div><div id="lb-wrap" style="width:90%">${lbHtml}</div><button class="btn" onclick="startGame()">[ TRY AGAIN ]</button><button class="btn btn-lb" onclick="showLeaderboard()">[ FULL LB ]</button>`;},700);}
+function loop(){if(state!=='playing')return;requestAnimationFrame(loop);frame++;score=Math.floor(frame/6);speed=4+score*0.025;document.getElementById('score').textContent=score;ctx.clearRect(0,0,W,H);ctx.fillStyle='#050000';ctx.fillRect(0,0,W,H);drawChart();drawGround();frog.vy+=GRAVITY;frog.y+=frog.vy;if(frog.y>=GROUND){frog.y=GROUND;frog.vy=0;frog.jumpCount=0;}if(--nextObstacle<=0)spawnObstacle();obstacles=obstacles.filter(o=>o.x>-50);for(const o of obstacles){o.x-=speed;drawObstacle(o);if(!o.passed&&o.x+o.w<frog.x){o.passed=true;combo++;SFX.dodge();spawnParticles(o.x,o.y,'#fff',4);}if(collision(frog,o)){gameOver();return;}}if(--nextCandle<=0)spawnCandle();candles=candles.filter(c=>c.x>-50&&!c.collected);for(const c of candles){c.x-=speed;drawCandle(c);if(collision(frog,c)){c.collected=true;SFX.collect();spawnParticles(c.x+c.w/2,c.y+c.h/2,'#00ff66',10);const bonus=Math.max(combo,1);frame+=bonus*5;showMsg(['+BASED','+PUMP','+GREEN','+WAGMI'][Math.floor(Math.random()*4)],c.x+c.w/2,c.y-10,'#00ff66');}}particles=particles.filter(p=>p.life>0);for(const p of particles){ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life-=0.04;}ctx.globalAlpha=1;messages=messages.filter(m=>m.life>0);for(const m of messages){ctx.globalAlpha=m.life;ctx.fillStyle=m.color;ctx.font='16px "VT323"';ctx.textAlign='center';ctx.fillText(m.text,m.x,m.y);m.y+=m.vy;m.life-=0.025;}ctx.globalAlpha=1;drawFrog(false);ctx.fillStyle='#ff003366';ctx.font='11px "Share Tech Mono"';ctx.textAlign='right';ctx.fillText(`SPD ${speed.toFixed(1)}x`,W-8,18);if(combo>1){ctx.fillStyle='#ffaa00';ctx.font='14px "VT323"';ctx.fillText(`x${combo} COMBO`,W-8,34);}}
 </script>
 </body>
 </html>
