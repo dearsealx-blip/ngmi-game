@@ -19,7 +19,7 @@ body { background: #000; color: #fff; font-family: 'Share Tech Mono', monospace;
 #canvas-wrap { position: relative; width: 100%; border: 1px solid #ff003444; box-shadow: 0 0 30px #ff003322, inset 0 0 20px #0a0000; }
 canvas { display: block; width: 100%; background: #050000; }
 #controls { font-size: 0.7rem; color: #ff003355; letter-spacing: 2px; }
-#overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: rgba(0,0,0,0.88); z-index: 10; }
+#overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 0; background: rgba(0,0,0,0.92); z-index: 10; padding: 10px 8px; overflow-y: auto; }
 #overlay h1 { font-family: 'VT323', monospace; font-size: 3.2rem; color: #ff0033; text-shadow: 0 0 30px #ff0033; animation: flicker 2.5s infinite; }
 .sub { font-size: 0.75rem; color: #ff003377; letter-spacing: 3px; text-align: center; line-height: 1.9; }
 .big-score { font-family: 'VT323', monospace; font-size: 2.8rem; color: #fff; text-shadow: 0 0 10px #fff5; }
@@ -50,7 +50,19 @@ canvas { display: block; width: 100%; background: #050000; }
 .btn-skins:hover, .btn-skins:active { background: #cc44ff22; color: #cc44ff; }
 .holder-bonus-text { font-size: 0.65rem; color: #00ccff55; letter-spacing: 2px; text-align: center; }
 .holder-bonus-text.verified { color: #00ff6688; }
-#lb-wrap { width: 100%; max-height: 140px; overflow-y: auto; border: 1px solid #ff003333; background: #0a0000; }
+#lb-wrap { width: 100%; flex: 1; overflow-y: auto; border: 1px solid #ff003333; background: #0a0000; }
+.screen { display: flex; flex-direction: column; width: 100%; height: 100%; }
+.screen-top { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 4px; flex-shrink: 0; }
+.screen-mid { display: flex; flex-direction: column; align-items: center; gap: 10px; flex: 1; justify-content: center; padding: 8px 0; }
+.screen-bot { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-bottom: 4px; width: 100%; flex-shrink: 0; }
+.bottom-nav { display: flex; flex-direction: row; justify-content: space-around; width: 100%; border-top: 1px solid #ff003333; padding-top: 8px; gap: 2px; }
+.nav-btn { background: transparent; border: 1px solid #ff003333; color: #ff003366; font-family: 'VT323', monospace; font-size: 0.65rem; padding: 6px 2px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; letter-spacing: 1px; transition: all 0.15s; }
+.nav-btn span:first-child { font-size: 1.3rem; line-height: 1; }
+.nav-btn:hover, .nav-btn:active { border-color: #ff0033; color: #ff0033; background: #ff003311; }
+.screen-scroll { flex: 1; overflow-y: auto; width: 100%; min-height: 0; }
+.screen-scroll::-webkit-scrollbar { width: 4px; }
+.screen-scroll::-webkit-scrollbar-thumb { background: #ff003344; }
+.screen-footer { padding: 8px 0 2px; width: 100%; display: flex; justify-content: center; border-top: 1px solid #ff003322; flex-shrink: 0; }
 #lb-wrap::-webkit-scrollbar { width: 4px; }
 #lb-wrap::-webkit-scrollbar-track { background: #000; }
 #lb-wrap::-webkit-scrollbar-thumb { background: #ff003344; }
@@ -109,27 +121,28 @@ canvas { display: block; width: 100%; background: #050000; }
     <canvas id="c" width="700" height="300"></canvas>
     <button id="mute-btn" onclick="toggleMute()" title="Mute/Unmute">🔊</button>
     <div id="overlay">
-      <canvas id="title-canvas" width="100" height="80" style="display:block;margin:0 auto;"></canvas>
-      <h1>$NGMI</h1>
-      <div class="sub">SURF THE CHART · AVOID THE RUGS</div>
-      <div class="skin-dots" id="skin-selector"></div>
-      <div id="streak-display"></div>
-      <button class="btn" onclick="startGame(false)">[ PLAY ]</button>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-        <button class="btn btn-daily" onclick="startGame(true)">[ DAILY ]</button>
-        <button class="btn btn-lb" onclick="showLeaderboard('alltime')">[ LEADERBOARD ]</button>
+      <div class="screen-top">
+        <canvas id="title-canvas" width="100" height="70" style="display:block;margin:0 auto;"></canvas>
+        <h1 style="font-size:2.8rem;margin-top:-4px">$NGMI</h1>
+        <div class="sub" style="font-size:0.7rem;letter-spacing:2px">SURF THE CHART · AVOID THE RUGS</div>
+        <div class="skin-dots" id="skin-selector" style="margin-top:2px"></div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-        <button class="btn btn-stats" onclick="showStats()">[ STATS ]</button>
-        <button class="btn btn-achieve" onclick="showAchievements()">[ ACHIEVEMENTS ]</button>
+      <div class="screen-mid">
+        <button class="btn" style="font-size:2.2rem;padding:10px 0;width:82%;max-width:300px;letter-spacing:6px" onclick="startGame(false)">[ PLAY ]</button>
+        <button class="btn btn-daily" style="width:65%;max-width:240px;font-size:1.3rem;padding:6px 0" onclick="startGame(true)">[ DAILY CHALLENGE ]</button>
+        <div id="streak-display"></div>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-        <button class="btn btn-clan" onclick="showClanModal()">[ CLAN ]</button>
-        <button class="btn btn-skins" onclick="showSkinShop()">[ SKINS ]</button>
+      <div class="screen-bot">
+        <div class="bottom-nav">
+          <button class="nav-btn" onclick="showStats()"><span>📊</span><span>STATS</span></button>
+          <button class="nav-btn" onclick="showLeaderboard('alltime')"><span>🏆</span><span>BOARD</span></button>
+          <button class="nav-btn" onclick="showClanModal()"><span>⚔️</span><span>CLAN</span></button>
+          <button class="nav-btn" onclick="showSkinShop()"><span>🎨</span><span>SKINS</span></button>
+          <button class="nav-btn" onclick="showAchievements()"><span>🏅</span><span>BADGES</span></button>
+        </div>
+        <div id="holder-bonus-display" style="margin-top:4px"></div>
+        <div id="referral-display"></div>
       </div>
-      <div id="holder-bonus-display"></div>
-      <div id="referral-display"></div>
-      <div class="sub">SPACE / TAP / SWIPE UP to jump · Double jump allowed</div>
     </div>
   </div>
   <div id="controls">[ SPACE / TAP / SWIPE↑ ] JUMP &nbsp;·&nbsp; SURVIVE THE CHART</div>
@@ -681,9 +694,12 @@ function showSkinShop() {
   ol.style.display = 'flex';
   const bestStreak = Math.max(streakCount, parseInt(localStorage.getItem('ngmi_best_streak')||'0'));
   ol.innerHTML = `
-    <h1 style="font-size:1.8rem">SKIN SHOP</h1>
-    <div class="sub" style="margin-bottom:6px">SELECT YOUR FROG</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:92%;max-height:260px;overflow-y:auto">
+    <div class="screen-top" style="width:100%">
+      <h1 style="font-size:2.2rem">SKIN SHOP</h1>
+      <div class="sub" style="font-size:0.8rem">SELECT YOUR FROG</div>
+    </div>
+    <div class="screen-scroll" style="padding:8px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%">
       ${SKINS.map(s => {
         const unlocked = isSkinUnlocked(s);
         const active = selectedSkin === s.id;
@@ -704,7 +720,8 @@ function showSkinShop() {
         </div>`;
       }).join('')}
     </div>
-    <button class="btn btn-lb" onclick="showStart()">[ BACK ]</button>
+    </div>
+    <div class="screen-footer"><button class="btn btn-lb" style="font-size:1.3rem;padding:8px 48px" onclick="showStart()">[ BACK ]</button></div>
   `;
 }
 function selectSkinShop(id) {
@@ -730,17 +747,21 @@ async function showLeaderboard(tab) {
   stopMusic();
   const ol = document.getElementById('overlay');
   ol.style.display = 'flex';
-  const title = isGroupMode ? `GROUP TOURNAMENT<div style="font-size:0.8rem;color:#ffaa0077;font-family:'Share Tech Mono'">${groupName}</div>` : 'LEADERBOARD';
+  const title = isGroupMode ? `GROUP TOURNAMENT` : 'LEADERBOARD';
+  const subTitle = isGroupMode ? `<div style="font-size:0.85rem;color:#ffaa0077;font-family:'Share Tech Mono';letter-spacing:1px">${groupName}</div>` : '';
   ol.innerHTML = `
-    <h1 style="font-size:1.8rem;text-align:center">${title}</h1>
-    <div class="lb-tabs">
-      <button class="lb-tab ${tab==='alltime'?'active':''}" onclick="showLeaderboard('alltime')">ALL TIME</button>
-      <button class="lb-tab tab-daily ${tab==='daily'?'active':''}" onclick="showLeaderboard('daily')">DAILY</button>
-      <button class="lb-tab tab-season ${tab==='season'?'active':''}" onclick="showLeaderboard('season')">${getMonthStr().split(' ').slice(0,2).join(' ')}</button>
-      <button class="lb-tab tab-clans ${tab==='clans'?'active':''}" onclick="showLeaderboard('clans')">CLANS</button>
+    <div class="screen-top" style="width:100%;gap:6px">
+      <h1 style="font-size:2rem">${title}</h1>
+      ${subTitle}
+      <div class="lb-tabs" style="width:100%;justify-content:center;gap:4px;flex-wrap:wrap">
+        <button class="lb-tab ${tab==='alltime'?'active':''}" onclick="showLeaderboard('alltime')">ALL TIME</button>
+        <button class="lb-tab tab-daily ${tab==='daily'?'active':''}" onclick="showLeaderboard('daily')">DAILY</button>
+        <button class="lb-tab tab-season ${tab==='season'?'active':''}" onclick="showLeaderboard('season')">${getMonthStr().split(' ').slice(0,2).join(' ')}</button>
+        <button class="lb-tab tab-clans ${tab==='clans'?'active':''}" onclick="showLeaderboard('clans')">CLANS</button>
+      </div>
     </div>
-    <div id="lb-wrap"><div class="lb-loading" style="animation:pulse 1s infinite">LOADING...</div></div>
-    <button class="btn btn-lb" onclick="showStart()">[ BACK ]</button>
+    <div id="lb-wrap" style="width:100%;flex:1;min-height:0"><div class="lb-loading" style="animation:pulse 1s infinite">LOADING...</div></div>
+    <div class="screen-footer"><button class="btn btn-lb" style="font-size:1.3rem;padding:8px 48px" onclick="showStart()">[ BACK ]</button></div>
   `;
   let rows = [];
   const lbEl = document.getElementById('lb-wrap');
@@ -763,15 +784,19 @@ function showAchievements() {
   ol.style.display = 'flex';
   const unlocked = achievements.length;
   ol.innerHTML = `
-    <h1 style="font-size:1.8rem">ACHIEVEMENTS</h1>
-    <div class="sub" style="margin-bottom:4px">${unlocked} / ${ACHIEVEMENT_DEFS.length} UNLOCKED</div>
-    <div class="achieve-grid">
-      ${ACHIEVEMENT_DEFS.map(a => {
-        const done = hasAchievement(a.id);
-        return `<div class="achieve-item ${done?'done':''}"><div class="a-name">${done?'✅':''} ${a.name}</div><div>${a.desc}</div></div>`;
-      }).join('')}
+    <div class="screen-top" style="width:100%">
+      <h1 style="font-size:2.2rem">ACHIEVEMENTS</h1>
+      <div class="sub" style="font-size:0.8rem">${unlocked} / ${ACHIEVEMENT_DEFS.length} UNLOCKED</div>
     </div>
-    <button class="btn btn-lb" onclick="showStart()">[ BACK ]</button>
+    <div class="screen-scroll" style="padding:8px">
+      <div class="achieve-grid" style="max-height:none;grid-template-columns:1fr 1fr;gap:6px">
+        ${ACHIEVEMENT_DEFS.map(a => {
+          const done = hasAchievement(a.id);
+          return `<div class="achieve-item ${done?'done':''}" style="padding:8px;font-size:0.7rem"><div class="a-name" style="font-size:1rem">${done?'✅':''} ${a.name}</div><div style="color:#ff003355;font-size:0.65rem;margin-top:2px">${a.desc}</div></div>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="screen-footer"><button class="btn btn-lb" style="font-size:1.3rem;padding:8px 48px" onclick="showStart()">[ BACK ]</button></div>
   `;
 }
 
@@ -781,20 +806,25 @@ function showStats() {
   const ol = document.getElementById('overlay');
   ol.style.display = 'flex';
   ol.innerHTML = `
-    <h1 style="font-size:2rem">YOUR STATS</h1>
-    <div class="stats-grid">
-      <div><div class="stat-label">GAMES PLAYED</div><div class="stat-val">${gamesPlayed}</div></div>
-      <div><div class="stat-label">BEST SCORE</div><div class="stat-val">${best}</div></div>
-      <div><div class="stat-label">AVG SCORE</div><div class="stat-val">${avg}</div></div>
-      <div><div class="stat-label">TOTAL COINS</div><div class="stat-val">${totalCoins}</div></div>
-      <div><div class="stat-label">STREAK</div><div class="stat-val">${streakCount} 🔥</div></div>
-      <div><div class="stat-label">DAILY DONE</div><div class="stat-val">${dailyChallengesCompleted}</div></div>
-      <div><div class="stat-label">ACHIEVEMENTS</div><div class="stat-val">${achievements.length}/${ACHIEVEMENT_DEFS.length}</div></div>
-      <div><div class="stat-label">SHIELDS USED</div><div class="stat-val">${totalShields}</div></div>
+    <div class="screen-top" style="width:100%">
+      <h1 style="font-size:2.2rem">YOUR STATS</h1>
     </div>
-    <div class="sub" style="margin-top:4px">SKINS UNLOCKED: ${SKINS.filter(s=>isSkinUnlocked(s)).length} / ${SKINS.length}</div>
-    <div class="referral-info" style="margin-top:4px">YOUR REF LINK: <span>t.me/NGMI_TON_BOT?startapp=ref_${myRefCode}</span></div>
-    <button class="btn btn-lb" onclick="showStart()">[ BACK ]</button>
+    <div class="screen-scroll" style="padding:8px 12px">
+      <div class="stats-grid" style="width:100%;gap:12px 28px">
+        <div><div class="stat-label">GAMES PLAYED</div><div class="stat-val">${gamesPlayed}</div></div>
+        <div><div class="stat-label">BEST SCORE</div><div class="stat-val">${best}</div></div>
+        <div><div class="stat-label">AVG SCORE</div><div class="stat-val">${avg}</div></div>
+        <div><div class="stat-label">TOTAL COINS</div><div class="stat-val">${totalCoins}</div></div>
+        <div><div class="stat-label">STREAK</div><div class="stat-val">${streakCount} 🔥</div></div>
+        <div><div class="stat-label">DAILY DONE</div><div class="stat-val">${dailyChallengesCompleted}</div></div>
+        <div><div class="stat-label">ACHIEVEMENTS</div><div class="stat-val">${achievements.length}/${ACHIEVEMENT_DEFS.length}</div></div>
+        <div><div class="stat-label">SHIELDS USED</div><div class="stat-val">${totalShields}</div></div>
+        <div><div class="stat-label">SKINS UNLOCKED</div><div class="stat-val">${SKINS.filter(s=>isSkinUnlocked(s)).length}/${SKINS.length}</div></div>
+        <div><div class="stat-label">BEST STREAK</div><div class="stat-val">${Math.max(streakCount,parseInt(localStorage.getItem('ngmi_best_streak')||'0'))} 🔥</div></div>
+      </div>
+      <div class="referral-info" style="margin-top:16px;padding:8px;border:1px solid #00ff6622">YOUR REF LINK: <span>t.me/NGMI_TON_BOT?startapp=ref_${myRefCode}</span></div>
+    </div>
+    <div class="screen-footer"><button class="btn btn-lb" style="font-size:1.3rem;padding:8px 48px" onclick="showStart()">[ BACK ]</button></div>
   `;
 }
 
@@ -804,27 +834,28 @@ function showStart() {
   const ol = document.getElementById('overlay');
   ol.style.display = 'flex';
   ol.innerHTML = `
-    <canvas id="title-canvas" width="100" height="80" style="display:block;margin:0 auto;"></canvas>
-    <h1>$NGMI</h1>
-    <div class="sub">SURF THE CHART · AVOID THE RUGS</div>
-    <div class="skin-dots" id="skin-selector"></div>
-    <div id="streak-display"></div>
-    <button class="btn" onclick="startGame(false)">[ PLAY ]</button>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-      <button class="btn btn-daily" onclick="startGame(true)">[ DAILY ]</button>
-      <button class="btn btn-lb" onclick="showLeaderboard('alltime')">[ LEADERBOARD ]</button>
+    <div class="screen-top">
+      <canvas id="title-canvas" width="100" height="70" style="display:block;margin:0 auto;"></canvas>
+      <h1 style="font-size:2.8rem;margin-top:-4px">$NGMI</h1>
+      <div class="sub" style="font-size:0.7rem;letter-spacing:2px">SURF THE CHART · AVOID THE RUGS</div>
+      <div class="skin-dots" id="skin-selector" style="margin-top:2px"></div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-      <button class="btn btn-stats" onclick="showStats()">[ STATS ]</button>
-      <button class="btn btn-achieve" onclick="showAchievements()">[ ACHIEVEMENTS ]</button>
+    <div class="screen-mid">
+      <button class="btn" style="font-size:2.2rem;padding:10px 0;width:82%;max-width:300px;letter-spacing:6px" onclick="startGame(false)">[ PLAY ]</button>
+      <button class="btn btn-daily" style="width:65%;max-width:240px;font-size:1.3rem;padding:6px 0" onclick="startGame(true)">[ DAILY CHALLENGE ]</button>
+      <div id="streak-display"></div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-      <button class="btn btn-clan" onclick="showClanModal()">[ CLAN ]</button>
-      <button class="btn btn-skins" onclick="showSkinShop()">[ SKINS ]</button>
+    <div class="screen-bot">
+      <div class="bottom-nav">
+        <button class="nav-btn" onclick="showStats()"><span>📊</span><span>STATS</span></button>
+        <button class="nav-btn" onclick="showLeaderboard('alltime')"><span>🏆</span><span>BOARD</span></button>
+        <button class="nav-btn" onclick="showClanModal()"><span>⚔️</span><span>CLAN</span></button>
+        <button class="nav-btn" onclick="showSkinShop()"><span>🎨</span><span>SKINS</span></button>
+        <button class="nav-btn" onclick="showAchievements()"><span>🏅</span><span>BADGES</span></button>
+      </div>
+      <div id="holder-bonus-display" style="margin-top:4px"></div>
+      <div id="referral-display"></div>
     </div>
-    <div id="holder-bonus-display"></div>
-    <div id="referral-display"></div>
-    <div class="sub">SPACE / TAP / SWIPE UP to jump · Double jump allowed</div>
   `;
   renderSkinSelector();
   renderStreakDisplay();
@@ -1450,19 +1481,32 @@ async function gameOver() {
     const ol = document.getElementById('overlay');
     ol.style.display='flex';
     ol.innerHTML=`
-      <h1 style="font-size:2.4rem">RUGGED</h1>
-      <div class="big-score">${finalDisplayScore} pts</div>
-      <div class="verdict">${verdict}</div>
-      ${rankTxt}${coinsTxt}${streakTxt}${holderTxt}${dailyTxt}${hardTxt}
-      <div id="lb-wrap" style="width:90%">${lbHtml}</div>
-      <button class="btn" onclick="startGame(false)">[ TRY AGAIN ]</button>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
-        <button class="btn btn-card" onclick="showScoreCard(${finalDisplayScore},${myRank||0})">[ SHARE CARD ]</button>
-        <button class="btn btn-share" onclick="shareScore(${finalDisplayScore})">[ SHARE ]</button>
+      <div class="screen-top" style="width:100%;text-align:center;padding-top:6px">
+        <h1 style="font-size:2.8rem;animation:flicker 2.5s infinite">RUGGED</h1>
+        <div class="verdict" style="font-size:1.6rem">${verdict}</div>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
-        <button class="btn btn-stats" onclick="showStats()">[ STATS ]</button>
-        <button class="btn btn-lb" onclick="showLeaderboard('alltime')">[ FULL LB ]</button>
+      <div class="screen-mid" style="width:100%;gap:6px">
+        <div class="big-score" style="font-size:3.5rem;line-height:1">${finalDisplayScore}</div>
+        <div class="sub" style="font-size:0.75rem;color:#ff003355">POINTS</div>
+        ${streakTxt}${holderTxt}
+        <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:4px">
+          ${rankTxt}${coinsTxt}
+        </div>
+        ${dailyTxt}${hardTxt}
+      </div>
+      <div style="width:90%;flex:1;min-height:0;display:flex;flex-direction:column;gap:4px">
+        <div style="font-family:'VT323',monospace;font-size:0.9rem;color:#ff003366;letter-spacing:2px;text-align:center">TOP SCORES</div>
+        <div id="lb-wrap" style="flex:1;min-height:60px;max-height:120px">${lbHtml}</div>
+      </div>
+      <div class="screen-bot" style="width:100%;gap:8px;padding-top:8px">
+        <div style="display:flex;gap:8px;width:92%;justify-content:center">
+          <button class="btn" style="flex:1;font-size:1.4rem;padding:8px 0" onclick="startGame(false)">[ PLAY AGAIN ]</button>
+          <button class="btn btn-card" style="flex:1;font-size:1.2rem;padding:8px 0" onclick="showScoreCard(${finalDisplayScore},${myRank||0})">[ SHARE CARD ]</button>
+        </div>
+        <div style="display:flex;gap:8px;width:92%;justify-content:center">
+          <button class="btn btn-lb" style="flex:1;font-size:1.1rem;padding:6px 0" onclick="showLeaderboard('alltime')">[ LEADERBOARD ]</button>
+          <button class="btn btn-share" style="flex:1;font-size:1.1rem;padding:6px 0" onclick="shareScore(${finalDisplayScore})">[ SHARE ]</button>
+        </div>
       </div>
     `;
   }, 700);
