@@ -238,6 +238,9 @@ const SFX = {
   boss()     { playTone(110,'sawtooth',0.4,0.25,55); playNoise(0.2,0.1); },
   streak()   { [440,554,659,880].forEach((f,i)=>setTimeout(()=>playTone(f,'square',0.08,0.12),i*50)); },
   achieve()  { playTone(600,'square',0.05,0.12); setTimeout(()=>playTone(800,'square',0.05,0.12),80); setTimeout(()=>playTone(1000,'square',0.08,0.15),160); },
+  nearMiss() { playTone(800,'sine',0.06,0.12,1400); },
+  magnet()   { [300,400,500,700].forEach((f,i)=>setTimeout(()=>playTone(f,'sine',0.07,0.09,f*1.3),i*30)); },
+  comboSfx(n){ playTone(380+n*50,'square',0.05,0.09); },
 };
 
 // ─── CHIPTUNE MUSIC ──────────────────────────────────────────────────────────
@@ -265,13 +268,32 @@ function playMusicBeat() {
   const nextTempo = turboFrames > 0 ? 110 : 140;
   musicTimer = setTimeout(playMusicBeat, nextTempo);
 }
+const MELODY = [523,659,784,659,523,440,494,523];
+let melodyIndex = 0, melodyTimer = null;
+function playMelodyBeat() {
+  if (!actx || !audioReady || !musicPlaying || muted) return;
+  if (melodyIndex % 2 === 0) {
+    const f = MELODY[(melodyIndex/2) % MELODY.length];
+    try {
+      const osc = actx.createOscillator(), g = actx.createGain();
+      osc.connect(g); g.connect(actx.destination);
+      osc.type = 'triangle'; osc.frequency.value = f;
+      g.gain.setValueAtTime(0.04, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.25);
+      osc.start(actx.currentTime); osc.stop(actx.currentTime + 0.25);
+    } catch(e) {}
+  }
+  melodyIndex++;
+  melodyTimer = setTimeout(playMelodyBeat, turboFrames > 0 ? 110 : 140);
+}
 function startMusic() {
   if (musicPlaying || muted) return;
-  musicPlaying = true; musicBeatIndex = 0; playMusicBeat();
+  musicPlaying = true; musicBeatIndex = 0; melodyIndex = 0; playMusicBeat(); playMelodyBeat();
 }
 function stopMusic() {
   musicPlaying = false;
   if (musicTimer) { clearTimeout(musicTimer); musicTimer = null; }
+  if (melodyTimer) { clearTimeout(melodyTimer); melodyTimer = null; }
 }
 
 // ─── SEEDED RNG ──────────────────────────────────────────────────────────────
@@ -348,6 +370,16 @@ const ACHIEVEMENT_DEFS = [
   { id:'ngmi_god',       name:'NGMI God',       desc:'Score 200+ in one run' },
   { id:'daily_grinder',  name:'Daily Grinder',  desc:'Complete 7 daily challenges' },
   { id:'streak_lord',    name:'Streak Lord',    desc:'Reach a 7-day streak' },
+  { id:'near_miss_pro',  name:'Near Miss Pro',  desc:'Get 10 near misses in one run' },
+  { id:'magnet_master',  name:'Magnet Master',  desc:'Collect 20 coins with magnet in one run' },
+  { id:'fomo_dodger',    name:'FOMO Dodger',    desc:'Dodge 5 FOMO obstacles in one run' },
+  { id:'perfectionist',  name:'Perfectionist',  desc:'Score 50+ without any power-ups' },
+  { id:'rich_frog',      name:'Rich Frog',      desc:'Collect 200 coins total' },
+  { id:'no_sleep',       name:'No Sleep',       desc:'Play 20 games total' },
+  { id:'ngmi_whale',     name:'NGMI Whale',     desc:'Score 500+ total across all games' },
+  { id:'combo_master',   name:'Combo Master',   desc:'Reach x15 combo in one run' },
+  { id:'speed_freak',    name:'Speed Freak',    desc:'Reach speed 15x in a run' },
+  { id:'millionaire',    name:'Millionaire',    desc:'Collect 1000 coins total' },
 ];
 let achievements = JSON.parse(localStorage.getItem('ngmi_achievements')||'[]');
 function hasAchievement(id) { return achievements.includes(id); }
@@ -368,6 +400,8 @@ function unlockAchievement(id) {
 }
 // Per-run trackers
 let runDoubleJumps = 0, runDodgeCount = 0, runRugDodges = 0, runSpeedMaxed = false;
+let runNearMisses = 0, runFomoDodges = 0, runMagnetCoins = 0, runNoPowerups = true;
+let runPrevCombo = 0;
 // Cumulative trackers from localStorage
 let totalDoubleJumps = parseInt(localStorage.getItem('ngmi_total_jumps2')||'0');
 let totalShields = parseInt(localStorage.getItem('ngmi_total_shields')||'0');
@@ -662,6 +696,11 @@ const SKINS = [
   { id: 3, emoji: '🐋', label: 'WHALE',      unlockAt: 200, requiresHolder: false, requiresStreak: 0 },
   { id: 4, emoji: '💎', label: 'DIAMOND',    unlockAt: 0,   requiresHolder: true,  requiresStreak: 0 },
   { id: 5, emoji: '👑', label: 'LEGEND',     unlockAt: 0,   requiresHolder: false, requiresStreak: 7 },
+  { id: 6, emoji: '🦊', label: 'DEGEN FOX',  unlockAt: 30,  requiresHolder: false, requiresStreak: 0 },
+  { id: 7, emoji: '🤖', label: 'ALGO BOT',   unlockAt: 75,  requiresHolder: false, requiresStreak: 0 },
+  { id: 8, emoji: '🔥', label: 'CHAD',       unlockAt: 150, requiresHolder: false, requiresStreak: 0 },
+  { id: 9, emoji: '🧲', label: 'MAGNET',     unlockAt: 0,   requiresHolder: false, requiresStreak: 3 },
+  { id:10, emoji: '🌙', label: 'MOONMAN',    unlockAt: 0,   requiresHolder: true,  requiresStreak: 0 },
 ];
 let selectedSkin = parseInt(localStorage.getItem('ngmi_skin') || '0');
 if (selectedSkin >= SKINS.length) selectedSkin = 0;
@@ -1077,7 +1116,7 @@ let state='idle', score=0, frame=0, speed=4, combo=0;
 let chartPoints=[], chartOffset=0, bgOffset=0;
 let particles=[], messages=[], obstacles=[], candles=[], powerups=[], coins=[];
 let nextObstacle=90, nextCandle=70, nextPowerup=150, nextCoin=120, noiseState=0;
-let shakeFrames=0, turboFrames=0, shieldActive=false;
+let shakeFrames=0, turboFrames=0, shieldActive=false, magnetFrames=0;
 const MILESTONES = [25, 50, 100, 200];
 let milestonesDone = new Set();
 let hardMode = parseInt(localStorage.getItem('ngmi_hardmode')||'0') === 1;
@@ -1095,8 +1134,43 @@ function noise(x) { return Math.sin(x*7.3+noiseState)*0.5+Math.sin(x*3.1+noiseSt
 function initChart() { chartPoints=[]; for(let x=0;x<=W+20;x+=5) chartPoints.push(noise(x*0.01)*28+GROUND-8); }
 
 // ─── START / JUMP ─────────────────────────────────────────────────────────────
+function showTutorial(cb) {
+  if (localStorage.getItem('ngmi_tutorial_done')) { cb(); return; }
+  const tips = [
+    { icon: '👆', text: 'TAP TO JUMP', sub: 'avoid the rugs!' },
+    { icon: '👆👆', text: 'DOUBLE TAP', sub: 'double jump to reach higher!' },
+    { icon: '⚡', text: 'GRAB POWER-UPS', sub: 'turbo, shield & magnet!' },
+  ];
+  let i = 0;
+  const ol = document.getElementById('overlay');
+  ol.style.display = 'flex';
+  function showTip() {
+    if (i >= tips.length) {
+      localStorage.setItem('ngmi_tutorial_done', '1');
+      ol.style.display = 'none';
+      cb(); return;
+    }
+    const t = tips[i];
+    ol.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px">
+      <div style="font-size:3rem">${t.icon}</div>
+      <div style="font-family:'VT323',monospace;font-size:2.5rem;color:#ff0033;text-shadow:0 0 20px #ff0033">${t.text}</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:0.85rem;color:#ff003377;letter-spacing:2px">${t.sub}</div>
+      <div style="font-size:0.65rem;color:#ff003333;letter-spacing:2px;margin-top:8px">TAP TO CONTINUE (${i+1}/${tips.length})</div>
+    </div>`;
+    i++;
+    const handler = () => { ol.removeEventListener('click', handler); setTimeout(showTip, 200); };
+    setTimeout(() => ol.addEventListener('click', handler), 300);
+    setTimeout(showTip, 1800);
+  }
+  showTip();
+}
+
 function startGame(daily) {
   if (!audioReady) initAudioSync();
+  if (!localStorage.getItem('ngmi_tutorial_done')) {
+    showTutorial(() => startGame(daily));
+    return;
+  }
   stopTitleAnimation();
   stopMusic();
 
@@ -1128,6 +1202,7 @@ function startGame(daily) {
   newBestShown = false;
   frogScale = { x: 1, y: 1, squashFrames: 0, wasOnGround: true };
   runDoubleJumps = 0; runDodgeCount = 0; runRugDodges = 0; runSpeedMaxed = false;
+  runNearMisses = 0; runFomoDodges = 0; runMagnetCoins = 0; runNoPowerups = true; runPrevCombo = 0; magnetFrames = 0;
   Object.assign(frog, {y:GROUND,vy:0,dead:false,jumpCount:0});
   obstacles=[]; candles=[]; particles=[]; messages=[]; powerups=[]; coins=[];
   nextObstacle=100; nextCandle=80; nextPowerup=150; nextCoin=120;
@@ -1199,7 +1274,7 @@ function spawnCoinCluster() {
 
 // ─── SPAWNERS ────────────────────────────────────────────────────────────────
 function spawnObstacle() {
-  const types = hardMode ? ['rug','honeypot','dev','sec','sec'] : ['rug','honeypot','dev'];
+  const types = hardMode ? ['rug','honeypot','dev','sec','sec','fomo'] : ['rug','honeypot','dev','fomo'];
   const type = types[Math.floor(gameRand()*types.length)];
   const h = 28+gameRand()*32;
   const bobs = gameRand() < 0.3;
@@ -1237,7 +1312,7 @@ function spawnCandle() {
   nextCandle = 80+gameRand()*80;
 }
 function spawnPowerup() {
-  const type = gameRand() < 0.5 ? 'turbo' : 'shield';
+  const r = gameRand(); const type = r < 0.4 ? 'turbo' : r < 0.7 ? 'shield' : 'magnet';
   powerups.push({x:W+20,y:GROUND-50-gameRand()*40,w:24,h:24,type,collected:false});
   nextPowerup = 160+gameRand()*120;
 }
@@ -1272,8 +1347,8 @@ function drawFrog(dead) {
 }
 
 function drawObstacle(o) {
-  const cols={rug:'#cc2200',honeypot:'#ffaa00',dev:'#9900cc',sec:'#0055ff',boss:'#ff0000',bear:'#003399',whale:'#7700cc'};
-  const lbls={rug:'RUG',honeypot:'HONEY',dev:'DEV',sec:'SEC',boss:'DUMP',bear:'BEAR',whale:'WHALE'};
+  const cols={rug:'#cc2200',honeypot:'#ffaa00',dev:'#9900cc',sec:'#0055ff',boss:'#ff0000',bear:'#003399',whale:'#7700cc',fomo:'#ff44cc'};
+  const lbls={rug:'RUG',honeypot:'HONEY',dev:'DEV',sec:'SEC',boss:'DUMP',bear:'BEAR',whale:'WHALE',fomo:'FOMO'};
   const c=cols[o.type]||'#cc2200';
   ctx.fillStyle=c+'22'; ctx.fillRect(o.x,o.y,o.w,o.h);
   ctx.strokeStyle=c; ctx.lineWidth=o.isBoss?3:2; ctx.strokeRect(o.x,o.y,o.w,o.h);
@@ -1315,8 +1390,8 @@ function drawCoin(coin) {
 
 function drawPowerup(p) {
   const t = Date.now()/400;
-  const col = p.type==='turbo' ? '#ff6600' : '#00ffff';
-  const lbl = p.type==='turbo' ? '⚡' : '🛡';
+  const col = p.type==='turbo' ? '#ff6600' : p.type==='shield' ? '#00ffff' : '#ffcc00';
+  const lbl = p.type==='turbo' ? '⚡' : p.type==='shield' ? '🛡' : '🧲';
   ctx.save();
   ctx.shadowColor=col; ctx.shadowBlur=14+Math.sin(t)*6;
   ctx.strokeStyle=col; ctx.lineWidth=2;
@@ -1437,6 +1512,15 @@ async function gameOver() {
 
   // Achievement: first blood
   unlockAchievement('first_blood');
+  // More achievement checks
+  if (gamesPlayed >= 20) unlockAchievement('no_sleep');
+  if (totalScore >= 500) unlockAchievement('ngmi_whale');
+  const curTotalCoins = parseInt(localStorage.getItem('ngmi_total_coins')||'0');
+  if (curTotalCoins >= 200) unlockAchievement('rich_frog');
+  if (curTotalCoins >= 1000) unlockAchievement('millionaire');
+  if (runNoPowerups && score >= 50) unlockAchievement('perfectionist');
+  if (runMagnetCoins >= 20) unlockAchievement('magnet_master');
+  if (speed >= 15) unlockAchievement('speed_freak');
 
   // Daily mode: record completion
   if (isDailyMode) {
@@ -1488,6 +1572,7 @@ async function gameOver() {
       <div class="screen-top" style="width:100%;text-align:center;padding-top:6px">
         <h1 style="font-size:2.8rem;animation:flicker 2.5s infinite">RUGGED</h1>
         <div class="verdict" style="font-size:1.6rem">${verdict}</div>
+      ${finalDisplayScore > (best - finalDisplayScore) && finalDisplayScore >= best ? '<div style="font-family:\'VT323\',monospace;font-size:1.4rem;color:#ffcc00;text-shadow:0 0 20px #ffcc00;animation:flicker 1s infinite">🌟 NEW BEST!</div>' : ''}
       </div>
       <div class="screen-mid" style="width:100%;gap:6px">
         <div class="big-score" style="font-size:3.5rem;line-height:1">${finalDisplayScore}</div>
@@ -1592,14 +1677,29 @@ function loop() {
   if(--nextObstacle<=0) spawnObstacle();
   obstacles = obstacles.filter(o=>o.x>-100);
   for(const o of obstacles){
-    o.x -= speed;
+    const oSpeed = o.type === 'fomo' ? speed * 1.5 : speed;
+    o.x -= oSpeed;
     drawObstacle(o);
+    // Near miss detection (passed within 20px horizontally while close vertically)
+    if(!o.passed && !o._nearMissChecked && o.x+o.w < frog.x+frog.w && o.x+o.w > frog.x-20){
+      const vertDist = Math.min(Math.abs(frog.y - o.y), Math.abs((frog.y+frog.h) - (o.y+o.h)));
+      if(vertDist < 20 && !collision(frog,o)){
+        o._nearMissChecked = true;
+        runNearMisses++;
+        frame += 2; // +2 pts
+        SFX.nearMiss(); haptic.light();
+        showMsg('NEAR MISS! +2',o.x+o.w/2,o.y-14,'#ff44cc');
+        spawnParticles(frog.x+frog.w,frog.y+frog.h/2,'#ff44cc',4);
+        if(runNearMisses >= 10) unlockAchievement('near_miss_pro');
+      }
+    }
     if(!o.passed && o.x+o.w<frog.x){
       o.passed=true;
       dodgeStreak++;
       runDodgeCount++;
       if (o.type === 'rug' || o.type === 'honeypot' || o.type === 'dev') { if (!o.isBoss && !o.whaleFlank) runDodgeCount; }
       if (o.type === 'rug') runRugDodges++;
+      if (o.type === 'fomo') { runFomoDodges++; if(runFomoDodges>=5) unlockAchievement('fomo_dodger'); }
       if (o.type === 'sec' && hardMode) unlockAchievement('sec_evader');
       if (o.isBoss && o.bossType === 'dump') {
         unlockAchievement('boss_slayer');
@@ -1616,6 +1716,8 @@ function loop() {
         haptic.success();
       } else if (!o.whaleFlank) {
         combo++; SFX.dodge(); haptic.medium();
+        if(combo !== runPrevCombo){ SFX.comboSfx(combo); runPrevCombo=combo; }
+        if(combo >= 15) unlockAchievement('combo_master');
         const pts = streakFrames > 0 ? 2 : 1;
         if (pts > 1) showMsg('+x2', o.x, o.y-10, '#ffaa00');
       }
@@ -1659,6 +1761,7 @@ function loop() {
       coin.collected=true;
       SFX.coinTick(); haptic.light();
       frame += 12; sessionCoins++;
+      if(magnetFrames > 0) runMagnetCoins++;
       spawnParticles(coin.x,coin.y,'#ffcc00',5);
       showMsg('+2',coin.x,coin.y-10,'#ffcc00');
       // Achievement check
@@ -1667,19 +1770,41 @@ function loop() {
     }
   }
 
+  // Magnet effect
+  if (magnetFrames > 0) {
+    magnetFrames--;
+    ctx.save();
+    ctx.strokeStyle = `rgba(255,204,0,${0.3 * magnetFrames/300})`;
+    ctx.lineWidth = 2; ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.arc(frog.x+frog.w/2, frog.y+frog.h/2, 80, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+    for(const coin of coins){
+      if(!coin.collected){
+        const dx = (frog.x+frog.w/2) - coin.x, dy = (frog.y+frog.h/2) - coin.y;
+        const dist = Math.hypot(dx, dy);
+        if(dist < 150){ coin.x += dx*0.12; coin.y += dy*0.12; }
+      }
+    }
+    if(magnetFrames===0) showMsg('MAGNET WORN OFF',frog.x+frog.w/2,frog.y-20,'#ffcc00');
+  }
+
   // Powerups
   if(--nextPowerup<=0) spawnPowerup();
   powerups = powerups.filter(p=>p.x>-50&&!p.collected);
   for(const p of powerups){
     p.x -= speed; drawPowerup(p);
     if(collision(frog,p)){
-      p.collected=true; haptic.success();
+      p.collected=true; haptic.success(); runNoPowerups=false;
       if(p.type==='turbo'){
         turboFrames=180; SFX.turbo();
         document.getElementById('canvas-wrap').classList.add('turbo-active');
         showMsg('⚡ TURBO!',frog.x+frog.w/2,frog.y-30,'#ff6600',true);
         totalTurbos++; localStorage.setItem('ngmi_total_turbos', totalTurbos);
         if (totalTurbos >= 10) unlockAchievement('turbo_junkie');
+      } else if(p.type==='magnet'){
+        magnetFrames=300; SFX.magnet();
+        showMsg('🧲 MAGNET!',frog.x+frog.w/2,frog.y-30,'#ffcc00',true);
+        spawnParticles(p.x+p.w/2,p.y+p.h/2,'#ffcc00',14);
       } else {
         shieldActive=true; SFX.shield();
         showMsg('🛡 SHIELDED!',frog.x+frog.w/2,frog.y-30,'#00ffff',true);
@@ -1720,6 +1845,7 @@ function loop() {
   ctx.fillStyle='#ff003366'; ctx.font='11px "Share Tech Mono"'; ctx.textAlign='right';
   ctx.fillText(`SPD ${speed.toFixed(1)}x`, W-8, 18);
   if(turboFrames>0){ ctx.fillStyle='#ff6600'; ctx.font='13px "VT323"'; ctx.fillText(`⚡ TURBO ${Math.ceil(turboFrames/60)}s`, W-8, 50); }
+  if(magnetFrames>0){ ctx.fillStyle='#ffcc00'; ctx.font='13px "VT323"'; ctx.textAlign='left'; ctx.fillText(`🧲 MAGNET ${Math.ceil(magnetFrames/60)}s`, 8, 50); }
   if(shieldActive){ ctx.fillStyle='#00ffff'; ctx.font='13px "VT323"'; ctx.textAlign='left'; ctx.fillText('🛡 SHIELD', 8, 18); }
   if(hardMode){ ctx.fillStyle='#0055ffaa'; ctx.font='11px "Share Tech Mono"'; ctx.textAlign='left'; ctx.fillText('HARD', 8, shieldActive?32:18); }
   if(streakFrames>0){
