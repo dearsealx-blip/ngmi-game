@@ -576,7 +576,7 @@ async function createClan() {
   const tag = tagEl.value.trim().toUpperCase();
   if (!name || tag.length < 1 || tag.length > 4) { alert('Enter a clan name and 1-4 char tag'); return; }
   try {
-    const res = await sbFetch('/rest/v1/clans', 'POST', { name, tag, owner: myRefCode, total_score: 0, member_count: 1 }, { 'Prefer': 'return=representation' });
+    const res = await sbFetch('/rest/v1/clans', 'POST', { name, tag, founder: myRefCode, total_score: 0, member_count: 1 }, { 'Prefer': 'return=representation' });
     if (!res.ok) { alert('Failed to create clan (tag may already be taken)'); return; }
     const clans = await res.json();
     const clan = clans[0];
