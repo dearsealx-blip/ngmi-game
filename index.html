@@ -489,7 +489,8 @@ async function submitDailyScore(s) {
         return true;
       }
     }
-    const res = await sbFetch('/rest/v1/daily_scores', 'POST', { username: playerName, score: s, date: today }, { 'Prefer': 'return=minimal' });
+    const tgId = TG_USER?.id ? String(TG_USER.id) : null;
+    const res = await sbFetch('/rest/v1/daily_scores', 'POST', { username: playerName, score: s, date: today, tg_id: tgId }, { 'Prefer': 'return=minimal' });
     return res.ok;
   } catch(e) { return false; }
 }
