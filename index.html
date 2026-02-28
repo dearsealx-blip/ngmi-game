@@ -19,7 +19,7 @@ body { background: #000; color: #fff; font-family: 'Share Tech Mono', monospace;
 #canvas-wrap { position: relative; width: 100%; border: 1px solid #ff003444; box-shadow: 0 0 30px #ff003322, inset 0 0 20px #0a0000; }
 canvas { display: block; width: 100%; background: #050000; }
 #controls { font-size: 0.7rem; color: #ff003355; letter-spacing: 2px; }
-#overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 0; background: rgba(0,0,0,0.92); z-index: 10; padding: 10px 8px; overflow-y: auto; }
+#overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 0; background: rgba(0,0,0,0.97); z-index: 10; padding: 10px 8px; overflow-y: auto; }
 #overlay h1 { font-family: 'VT323', monospace; font-size: 3.2rem; color: #ff0033; text-shadow: 0 0 30px #ff0033; animation: flicker 2.5s infinite; }
 .sub { font-size: 0.75rem; color: #ff003377; letter-spacing: 3px; text-align: center; line-height: 1.9; }
 .big-score { font-family: 'VT323', monospace; font-size: 2.8rem; color: #fff; text-shadow: 0 0 10px #fff5; }
@@ -831,6 +831,8 @@ function showStats() {
 function showStart() {
   stopTitleAnimation();
   stopMusic();
+  // Unlock orientation — portrait for menu screens
+  try { screen.orientation.unlock(); } catch(e) {}
   const ol = document.getElementById('overlay');
   ol.style.display = 'flex';
   ol.innerHTML = `
@@ -1115,6 +1117,8 @@ function startGame(daily) {
   frameIncrement = referrer ? 1.1 : 1;
 
   document.getElementById('overlay').style.display = 'none';
+  // Lock landscape for gameplay
+  try { screen.orientation.lock('landscape').catch(()=>{}); } catch(e) {}
   state='playing'; score=0; frame=0; speed=4; combo=0; sessionCoins=0;
   shakeFrames=0; turboFrames=0; shieldActive=false;
   milestonesDone = new Set();
