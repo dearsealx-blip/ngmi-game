@@ -1980,11 +1980,13 @@ function loop() {
       if(comboCount >= 2) { showMsg('COMBO BREAK!', frog.x+frog.w/2, frog.y-40, '#ff0033', true); }
       comboCount = 0;
       if(shieldActive){
-        shieldActive=false; combo=0; dodgeStreak=0;
-        SFX.shieldHit(); haptic.heavy(); triggerShake();
-        spawnParticles(frog.x+frog.w/2,frog.y,'#00ffff',12);
-        showMsg('SHIELD BROKEN!',frog.x+frog.w/2,frog.y-20,'#00ffff');
+        // DESTROY the obstacle — don't break shield
         o.passed=true;
+        SFX.shieldHit(); haptic.heavy();
+        spawnParticles(o.x+o.w/2, o.y+o.h/2, '#00ffff', 20);
+        spawnParticles(o.x+o.w/2, o.y+o.h/2, '#ffffff', 10);
+        frame += 15; // bonus score for destroying
+        showMsg('💥 DESTROYED!', o.x+o.w/2, o.y-20, '#00ffff', true);
       } else { gameOver(); ctx.restore(); return; }
     }
   }
@@ -2058,7 +2060,7 @@ function loop() {
         spawnParticles(p.x+p.w/2,p.y+p.h/2,'#ffcc00',14);
       } else {
         shieldActive=true; SFX.shield();
-        showMsg('🛡 SHIELDED!',frog.x+frog.w/2,frog.y-30,'#00ffff',true);
+        showMsg('🛡 DESTROYER MODE!',frog.x+frog.w/2,frog.y-30,'#00ffff',true);
         totalShields++; localStorage.setItem('ngmi_total_shields', totalShields);
         if (totalShields >= 5) unlockAchievement('shield_master');
       }
@@ -2097,7 +2099,7 @@ function loop() {
   ctx.fillText(`SPD ${speed.toFixed(1)}x`, W-8, 18);
   if(turboFrames>0){ ctx.fillStyle='#ff6600'; ctx.font='13px "VT323"'; ctx.fillText(`⚡ TURBO ${Math.ceil(turboFrames/60)}s`, W-8, 50); }
   if(magnetFrames>0){ ctx.fillStyle='#ffcc00'; ctx.font='13px "VT323"'; ctx.textAlign='left'; ctx.fillText(`🧲 MAGNET ${Math.ceil(magnetFrames/60)}s`, 8, 50); }
-  if(shieldActive){ ctx.fillStyle='#00ffff'; ctx.font='13px "VT323"'; ctx.textAlign='left'; ctx.fillText('🛡 SHIELD', 8, 18); }
+  if(shieldActive){ ctx.fillStyle='#00ffff'; ctx.font='13px "VT323"'; ctx.textAlign='left'; ctx.fillText('🛡 DESTROYER', 8, 18); }
   if(hardMode){ ctx.fillStyle='#0055ffaa'; ctx.font='11px "Share Tech Mono"'; ctx.textAlign='left'; ctx.fillText('HARD', 8, shieldActive?32:18); }
   if(streakFrames>0){
     ctx.fillStyle='#ffaa00'; ctx.font='14px "VT323"'; ctx.textAlign='center';
