@@ -138,6 +138,7 @@ canvas { display: block; width: 100%; background: #050000; }
           <button class="nav-btn" onclick="showPrizes()"><span>💰</span><span>PRIZES</span></button>
           <button class="nav-btn" onclick="showClanModal()"><span>⚔️</span><span>CLAN</span></button>
           <button class="nav-btn" onclick="showSkinShop()"><span>🎨</span><span>SKINS</span></button>
+          <button class="nav-btn" onclick="showTournament()"><span>🎯</span><span>TOURNEY</span></button>
         </div>
         <div id="referral-display"></div>
       </div>
@@ -857,9 +858,20 @@ let selectedSkin = parseInt(localStorage.getItem('ngmi_skin') || '0');
 if (selectedSkin >= SKINS.length) selectedSkin = 0;
 function getSkin() { return SKINS[selectedSkin] || SKINS[0]; }
 function isSkinUnlocked(s) {
+  if (localStorage.getItem('ngmi_crafted_skin_'+s.id)) return true;
   if (s.requiresStreak > 0 && streakCount < s.requiresStreak) return false;
   if (s.unlockAt > 0 && best < s.unlockAt) return false;
   return true;
+}
+function craftSkin(id) {
+  const coins = parseInt(localStorage.getItem('ngmi_total_coins')||'0');
+  if (coins < 150) { alert('NOT ENOUGH COINS! Need 150 🪙'); return; }
+  localStorage.setItem('ngmi_total_coins', coins - 150);
+  totalCoins = coins - 150;
+  localStorage.setItem('ngmi_crafted_skin_'+id, '1');
+  showSkinShop();
+  // Show crafted message after re-render
+  setTimeout(()=>{ alert('✨ CRAFTED! Skin unlocked!'); }, 100);
 }
 function renderSkinSelector() {
   const el = document.getElementById('skin-selector');
@@ -886,6 +898,7 @@ function showSkinShop() {
     <div class="screen-top" style="width:100%">
       <h1 style="font-size:2.2rem">SKIN SHOP</h1>
       <div class="sub" style="font-size:0.8rem">SELECT YOUR FROG</div>
+      <div style="font-family:'VT323',monospace;font-size:1.1rem;color:#ffcc00;letter-spacing:2px">🪙 ${parseInt(localStorage.getItem('ngmi_total_coins')||'0')} COINS</div>
     </div>
     <div class="screen-scroll" style="padding:8px">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%">
@@ -897,9 +910,11 @@ function showSkinShop() {
         else if (s.unlockAt > 0) condText = best >= s.unlockAt ? `✅ ${s.unlockAt} PTS` : `🔒 REACH ${s.unlockAt} PTS`;
         else condText = '✅ FREE';
         const borderCol = active ? '#ffcc00' : (unlocked ? '#ff003366' : '#ff003322');
-        const btnHtml = unlocked
+        const crafted = localStorage.getItem('ngmi_crafted_skin_'+s.id);
+        const isUnlockedNow = unlocked || crafted;
+        const btnHtml = isUnlockedNow
           ? `<button onclick="selectSkinShop(${s.id})" style="background:${active?'#ff0033':'transparent'};border:1px solid #ff003388;color:${active?'#000':'#ff0033'};font-family:'VT323',monospace;font-size:1rem;padding:2px 12px;cursor:pointer;margin-top:4px">${active?'SELECTED':'SELECT'}</button>`
-          : `<button disabled style="background:transparent;border:1px solid #ff003322;color:#ff003333;font-family:'VT323',monospace;font-size:1rem;padding:2px 12px;margin-top:4px;cursor:not-allowed">LOCKED</button>`;
+          : `<button onclick="craftSkin(${s.id})" style="background:transparent;border:1px solid #ffcc0066;color:#ffcc00aa;font-family:'VT323',monospace;font-size:0.85rem;padding:2px 8px;margin-top:4px;cursor:pointer">CRAFT — 150 🪙</button>`;
         return `<div style="padding:8px;border:1px solid ${borderCol};background:${active?'#ff003311':'#0a0000'};text-align:center">
           <div style="font-size:2rem">${s.emoji}</div>
           <div style="font-family:'VT323',monospace;font-size:1rem;color:#ff0033">${s.label}</div>
@@ -1042,7 +1057,7 @@ function showStart() {
         <button class="nav-btn" onclick="showLeaderboard('alltime')"><span>🏆</span><span>BOARD</span></button>
         <button class="nav-btn" onclick="showClanModal()"><span>⚔️</span><span>CLAN</span></button>
         <button class="nav-btn" onclick="showSkinShop()"><span>🎨</span><span>SKINS</span></button>
-        <button class="nav-btn" onclick="showAchievements()"><span>🏅</span><span>BADGES</span></button>
+        <button class="nav-btn" onclick="showTournament()"><span>🎯</span><span>TOURNEY</span></button>
       </div>
       <div id="referral-display"></div>
     </div>
@@ -1264,6 +1279,10 @@ let chartPoints=[], chartOffset=0, bgOffset=0;
 let particles=[], messages=[], obstacles=[], candles=[], powerups=[], coins=[];
 let nextObstacle=90, nextCandle=70, nextPowerup=150, nextCoin=120, noiseState=0;
 let shakeFrames=0, turboFrames=0, shieldActive=false, magnetFrames=0;
+let ghostFrames=0, fomoMeter=0, fomoRushFrames=0, bullRunFrames=0, nextBullRun=200;
+let nearMissStreak=0;
+let patternWarned40=false, patternWarned80=false, patternWarned120=false, patternWarned160=false, patternWarned220=false;
+let isReplayMode=false, replayInputs=[], replayFrame=0, isTournamentMode=false, tournamentScore=0;
 // ─── COMBO SYSTEM ─────────────────────────────────────────────────────────────
 let comboCount=0; // near-miss combo
 function getComboMult() { return Math.min(1.0 + comboCount * 0.1, 2.0); }
@@ -1345,6 +1364,10 @@ function startGame(daily) {
   try { screen.orientation.lock('landscape').catch(()=>{}); } catch(e) {}
   state='playing'; score=0; frame=0; speed=4; combo=0; sessionCoins=0;
   shakeFrames=0; turboFrames=0; shieldActive=false;
+  ghostFrames=0; fomoMeter=0; fomoRushFrames=0; bullRunFrames=0; nextBullRun=180+Math.floor(gameRand()*100);
+  nearMissStreak=0;
+  patternWarned40=false; patternWarned80=false; patternWarned120=false; patternWarned160=false; patternWarned220=false;
+  isReplayMode=false; replayInputs=[]; replayFrame=0; isTournamentMode=false; tournamentScore=0;
   milestonesDone = new Set();
   bossSpawned = false; bearBossSpawned = false; whaleBossSpawned = false;
   dumpBossWarned = false; bearBossWarned = false; whaleBossWarned = false;
@@ -1354,6 +1377,8 @@ function startGame(daily) {
   runDoubleJumps = 0; runDodgeCount = 0; runRugDodges = 0; runSpeedMaxed = false;
   runNearMisses = 0; runFomoDodges = 0; runMagnetCoins = 0; runNoPowerups = true; runPrevCombo = 0; magnetFrames = 0;
   comboCount = 0;
+  // Feature 6: Referral bonus shield
+  if (referrer) { shieldActive = true; showMsg('🎁 REFERRAL BONUS! SHIELD!', W/2, H/2-40, '#00ffff', true); }
   Object.assign(frog, {y:GROUND,vy:0,dead:false,jumpCount:0});
   obstacles=[]; candles=[]; particles=[]; messages=[]; powerups=[]; coins=[];
   nextObstacle=100; nextCandle=80; nextPowerup=150; nextCoin=120;
@@ -1368,6 +1393,8 @@ function startGame(daily) {
 function jump() {
   if (!audioReady) initAudioSync();
   if (state !== 'playing') return;
+  // Record input for replay (daily mode only, not in replay mode)
+  if (isDailyMode && !isReplayMode) { replayInputs.push({frame: Math.floor(frame), action:'jump'}); }
   if (frog.jumpCount < 2) {
     frog.vy = JUMP;
     const isDouble = frog.jumpCount === 1;
@@ -1463,7 +1490,7 @@ function spawnCandle() {
   nextCandle = 80+gameRand()*80;
 }
 function spawnPowerup() {
-  const r = gameRand(); const type = r < 0.4 ? 'turbo' : r < 0.7 ? 'shield' : 'magnet';
+  const r = gameRand(); const type = r < 0.3 ? 'turbo' : r < 0.55 ? 'shield' : r < 0.75 ? 'magnet' : 'ghost';
   powerups.push({x:W+20,y:GROUND-50-gameRand()*40,w:24,h:24,type,collected:false});
   nextPowerup = 160+gameRand()*120;
 }
@@ -1487,11 +1514,12 @@ function drawFrog(dead) {
   ctx.save();
   ctx.translate(cx, cy);
   if (turboFrames > 0 && !dead) ctx.rotate(-0.2);
-  ctx.scale(frogScale.x, frogScale.y);
+  const comboScale = 1 + Math.min(combo * 0.03, 0.3);
+  ctx.scale(frogScale.x * comboScale, frogScale.y * comboScale);
   ctx.font = '28px serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.globalAlpha = dead ? 0.5 : 1;
+  ctx.globalAlpha = dead ? 0.5 : (ghostFrames > 0 ? 0.3 : 1);
   ctx.fillText(dead ? '💀' : sk.emoji, 0, 0);
   ctx.globalAlpha = 1;
   ctx.restore();
@@ -1541,8 +1569,8 @@ function drawCoin(coin) {
 
 function drawPowerup(p) {
   const t = Date.now()/400;
-  const col = p.type==='turbo' ? '#ff6600' : p.type==='shield' ? '#00ffff' : '#ffcc00';
-  const lbl = p.type==='turbo' ? '⚡' : p.type==='shield' ? '🛡' : '🧲';
+  const col = p.type==='turbo' ? '#ff6600' : p.type==='shield' ? '#00ffff' : p.type==='ghost' ? '#dddddd' : '#ffcc00';
+  const lbl = p.type==='turbo' ? '⚡' : p.type==='shield' ? '🛡' : p.type==='ghost' ? '👻' : '🧲';
   ctx.save();
   ctx.shadowColor=col; ctx.shadowBlur=14+Math.sin(t)*6;
   ctx.strokeStyle=col; ctx.lineWidth=2;
@@ -1751,6 +1779,20 @@ async function gameOver() {
   if (runMagnetCoins >= 20) unlockAchievement('magnet_master');
   if (speed >= 15) unlockAchievement('speed_freak');
 
+  // Feature 11: Save replay if daily best
+  if (isDailyMode && !isReplayMode) {
+    saveReplayIfBest(finalDisplayScore, replayInputs);
+  }
+  // Feature 12: Save tournament score
+  if (isTournamentMode) {
+    const tdata = getTournamentData();
+    if (tdata) {
+      const entry = tdata.entries.find(e=>e.name===playerName);
+      if (entry) { if(finalDisplayScore > entry.score) entry.score = finalDisplayScore; }
+      else tdata.entries.push({name:playerName, score:finalDisplayScore});
+      localStorage.setItem('ngmi_tournament', JSON.stringify(tdata));
+    }
+  }
   // Daily mode: record completion
   if (isDailyMode) {
     const todayKey = 'ngmi_daily_' + getDailyDateStr();
@@ -1804,6 +1846,7 @@ async function gameOver() {
     const coinsTxt = sessionCoins > 0 ? `<div class="sub" style="color:#ffcc0077">🪙 ${sessionCoins} COINS THIS RUN</div>` : '';
     const streakTxt = streakCount >= 2 ? `<div class="sub" style="color:#ff660088">🔥 ${streakCount} DAY STREAK · x${getStreakMultiplier().toFixed(2)} MULTIPLIER</div>` : '';
     const dailyBadge = isDailyMode ? `<div style="font-family:'VT323',monospace;font-size:1.1rem;color:#ffcc00;letter-spacing:2px;background:#ffcc0011;border:1px solid #ffcc0044;padding:2px 12px;margin-top:2px">📅 DAILY CHALLENGE</div>` : '';
+    const tournamentBadge = isTournamentMode ? `<div style="font-family:'VT323',monospace;font-size:1.1rem;color:#ffcc00;letter-spacing:2px;background:#ffcc0011;border:1px solid #ffcc0044;padding:2px 12px;margin-top:2px">🏆 TOURNAMENT</div>` : '';
     const dailyTxt = isDailyMode ? `<div class="sub" style="color:#ffcc0088">✅ DAILY CHALLENGE COMPLETE!</div>` : '';
     const lbLabel = isDailyMode ? `TODAY'S DAILY TOP 10` : `TOP SCORES`;
     const ol = document.getElementById('overlay');
@@ -1812,7 +1855,7 @@ async function gameOver() {
       <div class="screen-top" style="width:100%;text-align:center;padding-top:6px">
         <h1 style="font-size:2.8rem;animation:flicker 2.5s infinite">RUGGED</h1>
         <div class="verdict" style="font-size:1.6rem">${verdict}</div>
-        ${dailyBadge}
+        ${dailyBadge}${tournamentBadge}
       ${finalDisplayScore > (best - finalDisplayScore) && finalDisplayScore >= best ? '<div style="font-family:\'VT323\',monospace;font-size:1.4rem;color:#ffcc00;text-shadow:0 0 20px #ffcc00;animation:flicker 1s infinite">🌟 NEW BEST!</div>' : ''}
       </div>
       <div class="screen-mid" style="width:100%;gap:6px">
@@ -1837,6 +1880,10 @@ async function gameOver() {
         <div style="display:flex;gap:8px;width:92%;justify-content:center">
           <button class="btn btn-lb" style="flex:1;font-size:1.1rem;padding:6px 0" onclick="showLeaderboard(${isDailyMode?`'daily'`:`'alltime'`})">[ LEADERBOARD ]</button>
           <button class="btn btn-share" style="flex:1;font-size:1.1rem;padding:6px 0" onclick="shareScore(${finalDisplayScore})">[ SHARE ]</button>
+        </div>
+        <div style="display:flex;gap:8px;width:92%;justify-content:center">
+          ${isDailyMode?`<button class="btn btn-daily" style="flex:1;font-size:1.1rem;padding:6px 0" onclick="showWatchMyRun()">[ WATCH MY RUN ]</button>`:''}
+          <button class="btn" style="flex:1;font-size:1.1rem;padding:6px 0;border-color:#ffcc0066;color:#ffcc0088" onclick="showTournament()">[ TOURNAMENT ]</button>
         </div>
       </div>
     `;
@@ -1874,6 +1921,27 @@ function loop() {
   if (!whaleBossWarned && score >= 298) { whaleBossWarned = true; showMsg('⚠ !!! INCOMING WHALE !!!', W/2, H/2-40, '#9900cc', true); SFX.boss(); haptic.warn(); }
   if (!whaleBossSpawned && score >= 300) spawnWhaleBoss();
 
+  // Feature 8: Chart pattern warnings
+  if (!patternWarned40 && score >= 40) { patternWarned40=true; showMsg('📊 HEAD & SHOULDERS', W/2, H/2-50, '#ffaa00', true); }
+  if (!patternWarned80 && score >= 80) { patternWarned80=true; showMsg('📊 DOUBLE TOP DETECTED', W/2, H/2-50, '#ff6600', true); }
+  if (!patternWarned120 && score >= 120) { patternWarned120=true; showMsg('📊 DEATH CROSS', W/2, H/2-50, '#ff0033', true); }
+  if (!patternWarned160 && score >= 160) { patternWarned160=true; showMsg('📊 BEAR FLAG PATTERN', W/2, H/2-50, '#3366ff', true); }
+  if (!patternWarned220 && score >= 220) { patternWarned220=true; showMsg('📊 FALLING WEDGE', W/2, H/2-50, '#9900cc', true); }
+
+  // Feature 1: Bull Run trigger
+  if (score >= nextBullRun && bullRunFrames === 0) { bullRunFrames=300; nextBullRun+=180+Math.floor(gameRand()*100); showMsg('🟢 BULL RUN! x2', W/2, H/2-60, '#00ff64', true); }
+  if (bullRunFrames > 0) { bullRunFrames--; ctx.fillStyle='rgba(0,255,100,0.04)'; ctx.fillRect(0,0,W,H); }
+
+  // Feature 5: FOMO meter drain and rush
+  if (fomoRushFrames > 0) { fomoRushFrames--; if(fomoRushFrames===0) showMsg('FOMO RUSH ENDED', W/2, H/2-30, '#ff6600'); }
+  fomoMeter = Math.max(0, fomoMeter - 1);
+
+  // Feature 11: Replay mode auto-jump
+  if (isReplayMode && replayInputs.length > 0) {
+    while (replayInputs.length > 0 && replayInputs[0].frame <= replayFrame) { replayInputs.shift(); jump(); }
+    replayFrame++;
+  }
+
   let sx=0, sy=0;
   if(shakeFrames>0){ sx=(Math.random()-0.5)*6; sy=(Math.random()-0.5)*4; shakeFrames--; }
 
@@ -1900,7 +1968,7 @@ function loop() {
   const onGround = frog.y >= GROUND;
   if(onGround){
     frog.y=GROUND; frog.vy=0; frog.jumpCount=0;
-    if (!wasOnGround) { frogScale.x = 1.3; frogScale.y = 0.7; frogScale.squashFrames = 6; haptic.light(); }
+    if (!wasOnGround) { frogScale.x = 1.3; frogScale.y = 0.7; frogScale.squashFrames = 6; haptic.light(); nearMissStreak=0; }
   }
   if (frogScale.squashFrames > 0) {
     frogScale.squashFrames--;
@@ -1928,17 +1996,21 @@ function loop() {
       if(vertDist < 20 && !collision(frog,o)){
         o._nearMissChecked = true;
         runNearMisses++;
-        frame += 2; // +2 pts
+        nearMissStreak++;
+        frame += 5; // +5 pts (feature 3)
+        fomoMeter = Math.min(100, fomoMeter + 10); // fomo fill
         // Combo system: near-miss increments comboCount
         comboCount++;
         if(comboCount >= 10) unlockAchievement('combo_king');
         if(comboCount >= 15) unlockAchievement('combo_master');
         SFX.nearMiss(); haptic.light();
-        const nearMissMsg = comboCount >= 2 ? `NEAR MISS! 🔥x${comboCount}` : 'NEAR MISS! +2';
-        showMsg(nearMissMsg, o.x+o.w/2, o.y-14, '#ff44cc');
+        showMsg('CLOSE CALL! +5', o.x+o.w/2, o.y-14, '#ff44cc');
+        if(nearMissStreak >= 3) { frame += 10; showMsg('UNTOUCHABLE! +10', frog.x+frog.w/2, frog.y-50, '#ff00ff', true); }
         if(comboCount >= 2) { setTimeout(()=>showMsg(`COMBO!`,frog.x+frog.w/2,frog.y-30,'#ff6600',false), 0); }
         spawnParticles(frog.x+frog.w,frog.y+frog.h/2,'#ff44cc',4);
         if(runNearMisses >= 10) unlockAchievement('near_miss_pro');
+        // check fomo rush
+        if (fomoMeter >= 100) { fomoMeter=0; fomoRushFrames=180; showMsg('🚀 FOMO RUSH!', W/2, H/2-40, '#ff6600', true); }
       }
     }
     if(!o.passed && o.x+o.w<frog.x){
@@ -1966,8 +2038,12 @@ function loop() {
         combo++; SFX.dodge(); haptic.medium();
         if(combo !== runPrevCombo){ SFX.comboSfx(combo); runPrevCombo=combo; }
         if(combo >= 15) unlockAchievement('combo_master');
-        const pts = streakFrames > 0 ? 2 : 1;
-        if (pts > 1) showMsg('+x2', o.x, o.y-10, '#ffaa00');
+        fomoMeter = Math.min(100, fomoMeter + 5);
+        let pts = streakFrames > 0 ? 2 : 1;
+        if (bullRunFrames > 0) { pts *= 2; showMsg('🟢 x2!', o.x, o.y-10, '#00ff64'); }
+        else if (pts > 1) showMsg('+x2', o.x, o.y-10, '#ffaa00');
+        frame += (pts - 1) * 6; // extra frames for bonus points
+        if (fomoMeter >= 100) { fomoMeter=0; fomoRushFrames=180; showMsg('🚀 FOMO RUSH!', W/2, H/2-40, '#ff6600', true); }
       }
       spawnParticles(o.x,o.y,'#fff',4);
       if (dodgeStreak >= 10 && streakFrames === 0) {
@@ -1979,7 +2055,13 @@ function loop() {
     if(collision(frog,o)){
       if(comboCount >= 2) { showMsg('COMBO BREAK!', frog.x+frog.w/2, frog.y-40, '#ff0033', true); }
       comboCount = 0;
-      if(shieldActive){
+      if(fomoRushFrames > 0){
+        o.passed=true; // phase through during FOMO rush
+        showMsg('🚀 FOMO RUSH!', o.x+o.w/2, o.y-20, '#ff6600');
+      } else if(ghostFrames > 0){
+        o.passed=true; // phase through during ghost
+        showMsg('👻 PHASED!', o.x+o.w/2, o.y-20, '#dddddd');
+      } else if(shieldActive){
         // DESTROY the obstacle — don't break shield
         o.passed=true;
         SFX.shieldHit(); haptic.heavy();
@@ -1987,6 +2069,10 @@ function loop() {
         spawnParticles(o.x+o.w/2, o.y+o.h/2, '#ffffff', 10);
         frame += 15; // bonus score for destroying
         showMsg('💥 DESTROYED!', o.x+o.w/2, o.y-20, '#00ffff', true);
+        // Feature 2: Boss loot drop
+        const dropCount = o.isBoss ? 5 : 2;
+        for(let ci=0;ci<dropCount;ci++) coins.push({x:o.x+ci*12,y:o.y-20,r:6,collected:false});
+        showMsg('💎 LOOT DROP!', o.x+o.w/2, o.y-40, '#ffcc00', true);
       } else { gameOver(); ctx.restore(); return; }
     }
   }
@@ -2058,6 +2144,10 @@ function loop() {
         magnetFrames=300; SFX.magnet();
         showMsg('🧲 MAGNET!',frog.x+frog.w/2,frog.y-30,'#ffcc00',true);
         spawnParticles(p.x+p.w/2,p.y+p.h/2,'#ffcc00',14);
+      } else if(p.type==='ghost'){
+        ghostFrames=180; SFX.shield();
+        showMsg('👻 GHOST MODE!',frog.x+frog.w/2,frog.y-30,'#dddddd',true);
+        spawnParticles(p.x+p.w/2,p.y+p.h/2,'#dddddd',14);
       } else {
         shieldActive=true; SFX.shield();
         showMsg('🛡 DESTROYER MODE!',frog.x+frog.w/2,frog.y-30,'#00ffff',true);
@@ -2101,6 +2191,22 @@ function loop() {
   if(magnetFrames>0){ ctx.fillStyle='#ffcc00'; ctx.font='13px "VT323"'; ctx.textAlign='left'; ctx.fillText(`🧲 MAGNET ${Math.ceil(magnetFrames/60)}s`, 8, 50); }
   if(shieldActive){ ctx.fillStyle='#00ffff'; ctx.font='13px "VT323"'; ctx.textAlign='left'; ctx.fillText('🛡 DESTROYER', 8, 18); }
   if(hardMode){ ctx.fillStyle='#0055ffaa'; ctx.font='11px "Share Tech Mono"'; ctx.textAlign='left'; ctx.fillText('HARD', 8, shieldActive?32:18); }
+  // Ghost HUD
+  if(ghostFrames>0){ ghostFrames--; ctx.fillStyle='#ddddddcc'; ctx.font='13px "VT323"'; ctx.textAlign='left'; ctx.fillText(`👻 GHOST ${Math.ceil(ghostFrames/60)}s`, 8, shieldActive?50:32); }
+  // Bull Run HUD
+  if(bullRunFrames>0){ ctx.fillStyle='#00ff64'; ctx.font='14px "VT323"'; ctx.textAlign='center'; ctx.shadowColor='#00ff64'; ctx.shadowBlur=8; ctx.fillText('🟢 BULL RUN x2', W/2, 32); ctx.shadowBlur=0; }
+  // FOMO rush HUD
+  if(fomoRushFrames>0){ ctx.fillStyle='#ff6600'; ctx.font='14px "VT323"'; ctx.textAlign='center'; ctx.shadowColor='#ff6600'; ctx.shadowBlur=8; ctx.fillText(`🚀 FOMO RUSH ${Math.ceil(fomoRushFrames/60)}s`, W/2, 50); ctx.shadowBlur=0; }
+  // FOMO meter bar (bottom left, above ground)
+  { const barW=70, barH=7, barX=8, barY=GROUND+frog.h-16;
+    ctx.fillStyle='#333'; ctx.fillRect(barX,barY,barW,barH);
+    const fillColor = fomoMeter>75?'#ff0000':fomoMeter>40?'#ff6600':'#ff9900';
+    ctx.fillStyle=fillColor; ctx.fillRect(barX,barY,barW*(fomoMeter/100),barH);
+    ctx.strokeStyle='#ff660066'; ctx.lineWidth=1; ctx.strokeRect(barX,barY,barW,barH);
+    ctx.fillStyle='#ff660099'; ctx.font='8px "Share Tech Mono"'; ctx.textAlign='left'; ctx.fillText('FOMO',barX,barY-2); }
+  // Replay/Tournament badges
+  if(isReplayMode){ ctx.fillStyle='#00ccff'; ctx.font='13px "VT323"'; ctx.textAlign='center'; ctx.fillText('📺 REPLAY', W/2, 68); }
+  if(isTournamentMode){ ctx.fillStyle='#ffcc00'; ctx.font='13px "VT323"'; ctx.textAlign='center'; ctx.fillText('🏆 TOURNAMENT', W/2, isReplayMode?84:68); }
   if(streakFrames>0){
     ctx.fillStyle='#ffaa00'; ctx.font='14px "VT323"'; ctx.textAlign='center';
     ctx.shadowColor='#ffaa00'; ctx.shadowBlur=8;
@@ -2138,6 +2244,112 @@ function loop() {
   drawCombo();
   drawNearMissCombo();
   ctx.restore();
+}
+
+// ─── FEATURE 11: INPUT REPLAY ────────────────────────────────────────────────
+function getDailyReplayKey() { return 'ngmi_daily_replay_' + getDailyDateStr(); }
+function saveReplayIfBest(finalScore, inputs) {
+  const today = getDailyDateStr();
+  const storedKey = 'ngmi_daily_replay_score_' + today;
+  const storedScore = parseInt(localStorage.getItem(storedKey)||'0');
+  if (finalScore > storedScore) {
+    localStorage.setItem(storedKey, finalScore);
+    localStorage.setItem(getDailyReplayKey(), JSON.stringify(inputs));
+  }
+}
+function showWatchMyRun() {
+  const replayData = localStorage.getItem(getDailyReplayKey());
+  if (!replayData) { alert('No replay saved for today. Play the daily challenge first!'); return; }
+  const inputs = JSON.parse(replayData);
+  // Start game in replay mode
+  startGame(true);
+  isReplayMode = true;
+  replayInputs = inputs.slice();
+  replayFrame = 0;
+}
+
+// ─── FEATURE 12: TOURNAMENT MODE ─────────────────────────────────────────────
+function getTournamentData() {
+  const raw = localStorage.getItem('ngmi_tournament');
+  if (!raw) return null;
+  const data = JSON.parse(raw);
+  // Check if expired (1 hour)
+  if (Date.now() > data.expiresAt) { localStorage.removeItem('ngmi_tournament'); return null; }
+  return data;
+}
+function showTournament() {
+  stopMusic();
+  const ol = document.getElementById('overlay');
+  ol.style.display = 'flex';
+  let data = getTournamentData();
+  const myCoins = parseInt(localStorage.getItem('ngmi_total_coins')||'0');
+
+  let entriesHtml = '';
+  let timeHtml = '';
+  let prizePool = 0;
+  let leaderHtml = '';
+
+  if (data) {
+    const remaining = Math.max(0, data.expiresAt - Date.now());
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    timeHtml = `<div style="font-family:'VT323',monospace;font-size:1.1rem;color:#ffcc00">⏱ ${mins}m ${secs}s REMAINING</div>`;
+    prizePool = data.entries.length * 50;
+    const sorted = [...data.entries].sort((a,b)=>b.score-a.score);
+    leaderHtml = sorted.slice(0,10).map((e,i)=>`<div style="display:flex;justify-content:space-between;padding:3px 10px;font-size:0.75rem;border-bottom:1px solid #1a1a1a;color:${e.name===playerName?'#ff0033':'#888'}"><span>#${i+1} ${e.name}</span><span>${e.score} pts</span></div>`).join('');
+  } else {
+    timeHtml = `<div style="font-size:0.7rem;color:#888;letter-spacing:1px">NO ACTIVE TOURNAMENT</div>`;
+  }
+
+  const alreadyEntered = data && data.entries.some(e=>e.name===playerName);
+  const btnHtml = data
+    ? (alreadyEntered
+        ? `<button class="btn" style="font-size:1.2rem;padding:6px 24px;border-color:#00ff66;color:#00ff66" onclick="startTournamentRun()">[ PLAY AGAIN ]</button>`
+        : `<button class="btn" style="font-size:1.2rem;padding:6px 24px;border-color:#ffcc00;color:#ffcc00" onclick="enterTournament()">[ ENTER — 50 🪙 ]</button>`)
+    : `<button class="btn" style="font-size:1.2rem;padding:6px 24px;border-color:#ffcc00;color:#ffcc00" onclick="createTournament()">[ START TOURNAMENT — 50 🪙 ]</button>`;
+
+  ol.innerHTML = `
+    <div class="screen" style="width:100%">
+      <div class="screen-top" style="padding:12px 8px 6px;text-align:center">
+        <div style="font-size:2rem">🏆</div>
+        <div style="font-family:'VT323',monospace;font-size:2rem;color:#ffcc00;text-shadow:0 0 20px #ffcc0066">TOURNAMENT</div>
+        ${timeHtml}
+        ${data?`<div style="font-family:'VT323',monospace;font-size:1.1rem;color:#ffaa00">PRIZE POOL: ${prizePool} 🪙</div>`:''}
+        <div style="font-size:0.65rem;color:#888;letter-spacing:1px">ENTRY: 50 🪙 · YOUR COINS: ${myCoins} 🪙</div>
+      </div>
+      <div class="screen-scroll" style="padding:8px;width:100%">
+        ${data&&leaderHtml?`<div style="font-family:'VT323',monospace;font-size:0.9rem;color:#ffcc00bb;text-align:center;letter-spacing:2px;margin-bottom:4px">LEADERBOARD</div><div style="border:1px solid #ffcc0033;background:#0a0000">${leaderHtml}</div>`:'<div style="text-align:center;color:#555;font-size:0.75rem;letter-spacing:2px;padding:20px">NO ACTIVE TOURNAMENT<br>START ONE TO COMPETE!</div>'}
+      </div>
+      <div class="screen-bot" style="gap:8px;padding:8px">
+        ${btnHtml}
+        <button class="btn btn-lb" onclick="showStart()">[ BACK ]</button>
+      </div>
+    </div>
+  `;
+}
+function createTournament() {
+  const coins = parseInt(localStorage.getItem('ngmi_total_coins')||'0');
+  if (coins < 50) { alert('Need 50 🪙 to start a tournament!'); return; }
+  localStorage.setItem('ngmi_total_coins', coins - 50);
+  totalCoins = coins - 50;
+  const data = { expiresAt: Date.now() + 3600000, entries: [{name: playerName, score: 0}] };
+  localStorage.setItem('ngmi_tournament', JSON.stringify(data));
+  startTournamentRun();
+}
+function enterTournament() {
+  const coins = parseInt(localStorage.getItem('ngmi_total_coins')||'0');
+  if (coins < 50) { alert('Need 50 🪙 to enter!'); return; }
+  localStorage.setItem('ngmi_total_coins', coins - 50);
+  totalCoins = coins - 50;
+  const data = getTournamentData();
+  if (!data) { createTournament(); return; }
+  data.entries.push({name: playerName, score: 0});
+  localStorage.setItem('ngmi_tournament', JSON.stringify(data));
+  startTournamentRun();
+}
+function startTournamentRun() {
+  startGame(false);
+  isTournamentMode = true;
 }
 
 // ─── SUPABASE SYNC ON LOAD ───────────────────────────────────────────────────
