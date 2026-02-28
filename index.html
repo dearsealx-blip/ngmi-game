@@ -128,7 +128,7 @@ canvas { display: block; width: 100%; background: #050000; }
       <div class="screen-mid">
         <button class="btn" style="font-size:2.2rem;padding:10px 0;width:82%;max-width:300px;letter-spacing:6px" onclick="startGame(false)">[ PLAY ]</button>
         <button class="btn btn-daily" style="width:65%;max-width:240px;font-size:1.3rem;padding:6px 0" onclick="startGame(true)">[ DAILY CHALLENGE ]</button>
-        <div style="display:flex;align-items:center;gap:6px;background:#ffcc0008;border:1px solid #ffcc0033;padding:4px 14px;font-family:'VT323',monospace;font-size:0.95rem;color:#ffcc00aa;letter-spacing:2px;cursor:pointer" onclick="showPrizes()">🏆 <span style="color:#ffcc00">5 TON</span> DAILY PRIZE</div>
+        <div style="display:flex;align-items:center;gap:6px;background:#ffcc0008;border:1px solid #ffcc0033;padding:4px 14px;font-family:'VT323',monospace;font-size:0.95rem;color:#ffcc00aa;letter-spacing:2px;cursor:pointer" onclick="showPrizes()">🏆 <span style="color:#ffcc00">5 TON</span> DAILY PRIZE · <span id="daily-countdown" style="color:#ffcc00bb">--:--:--</span></div>
         <div id="streak-display"></div>
       </div>
       <div class="screen-bot">
@@ -352,6 +352,23 @@ function renderStreakDisplay() {
   } else el.innerHTML = '';
 }
 
+function startDailyCountdown() {
+  function update() {
+    const el = document.getElementById('daily-countdown');
+    if (!el) return;
+    const now = new Date();
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0);
+    const diff = midnight - now;
+    const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
+    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+    el.textContent = `${h}:${m}:${s}`;
+  }
+  update();
+  setInterval(update, 1000);
+}
+
 // ─── ACHIEVEMENTS ────────────────────────────────────────────────────────────
 const ACHIEVEMENT_DEFS = [
   { id:'first_blood',    name:'First Blood',    desc:'Play your first game' },
@@ -480,11 +497,15 @@ async function submitDailyScore(s) {
 async function submitPrizeClaim(wallet) {
   try {
     const today = getDailyDateStr();
-    // Upsert: one claim per player per day
-    const res = await sbFetch('/rest/v1/prize_claims', 'POST',
-      { username: playerName, wallet, date: today, prize: '5 TON', claimed_at: new Date().toISOString() },
-      { 'Prefer': 'return=minimal,resolution=merge-duplicates' }
-    );
+    // Send claim privately via Telegram bot — wallet never stored publicly
+    const msg = `🏆 NGMI PRIZE CLAIM\n\nDate: ${today}\nPlayer: ${playerName}\nWallet: ${wallet}\nPrize: 5 TON\n\n✅ Send 5 TON to the wallet above.`;
+    const botToken = '8733328088:AAE2CMtfiAL5RHU1jE6uUNnP7-tJ4h6pLAE';
+    const chatId = '6446442088';
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: msg })
+    });
     return res.ok;
   } catch(e) { return false; }
 }
@@ -1067,6 +1088,7 @@ function showStart() {
   renderStreakDisplay();
   renderReferralDisplay();
   startTitleAnimation();
+  startDailyCountdown();
 }
 
 // ─── TITLE ANIMATION ─────────────────────────────────────────────────────────
@@ -2119,6 +2141,11 @@ function loop() {
         combo++; SFX.dodge(); haptic.medium();
         if(combo !== runPrevCombo){ SFX.comboSfx(combo); runPrevCombo=combo; }
         if(combo >= 15) unlockAchievement('combo_master');
+        // Combo announcer milestones
+        if(combo===5)  showMsg('🔥 x5 COMBO!',  W/2, H/2-60, '#ff6600', true);
+        if(combo===10) showMsg('⚡ x10 INSANE!', W/2, H/2-60, '#ffcc00', true);
+        if(combo===15) showMsg('💎 x15 GOD MODE!', W/2, H/2-60, '#00eeff', true);
+        if(combo===20) showMsg('☠️ x20 UNKILLABLE!', W/2, H/2-60, '#ff0033', true);
         fomoMeter = Math.min(100, fomoMeter + 5);
         let pts = streakFrames > 0 ? 2 : 1;
         if (bullRunFrames > 0) { pts *= 2; showMsg('🟢 x2!', o.x, o.y-10, '#00ff64'); }
