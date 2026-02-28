@@ -1278,7 +1278,7 @@ let state='idle', score=0, frame=0, speed=4, combo=0;
 let chartPoints=[], chartOffset=0, bgOffset=0;
 let particles=[], messages=[], obstacles=[], candles=[], powerups=[], coins=[];
 let nextObstacle=90, nextCandle=70, nextPowerup=150, nextCoin=120, noiseState=0;
-let shakeFrames=0, turboFrames=0, shieldActive=false, magnetFrames=0;
+let shakeFrames=0, turboFrames=0, shieldActive=false, shieldCharges=2, magnetFrames=0;
 let ghostFrames=0, fomoMeter=0, fomoRushFrames=0, bullRunFrames=0, nextBullRun=200;
 let nearMissStreak=0;
 let patternWarned40=false, patternWarned80=false, patternWarned120=false, patternWarned160=false, patternWarned220=false;
@@ -1363,7 +1363,7 @@ function startGame(daily) {
   // Lock landscape for gameplay
   try { screen.orientation.lock('landscape').catch(()=>{}); } catch(e) {}
   state='playing'; score=0; frame=0; speed=4; combo=0; sessionCoins=0;
-  shakeFrames=0; turboFrames=0; shieldActive=false;
+  shakeFrames=0; turboFrames=0; shieldActive=false; shieldCharges=2;
   ghostFrames=0; fomoMeter=0; fomoRushFrames=0; bullRunFrames=0; nextBullRun=180+Math.floor(gameRand()*100);
   nearMissStreak=0;
   patternWarned40=false; patternWarned80=false; patternWarned120=false; patternWarned160=false; patternWarned220=false;
@@ -1378,7 +1378,7 @@ function startGame(daily) {
   runNearMisses = 0; runFomoDodges = 0; runMagnetCoins = 0; runNoPowerups = true; runPrevCombo = 0; magnetFrames = 0;
   comboCount = 0;
   // Feature 6: Referral bonus shield
-  if (referrer) { shieldActive = true; showMsg('🎁 REFERRAL BONUS! SHIELD!', W/2, H/2-40, '#00ffff', true); }
+  if (referrer) { shieldActive = true; shieldCharges = 2; showMsg('🎁 REFERRAL BONUS! SHIELD x2!', W/2, H/2-40, '#00ffff', true); }
   Object.assign(frog, {y:GROUND,vy:0,dead:false,jumpCount:0});
   obstacles=[]; candles=[]; particles=[]; messages=[]; powerups=[]; coins=[];
   nextObstacle=100; nextCandle=80; nextPowerup=150; nextCoin=120;
@@ -2062,17 +2062,23 @@ function loop() {
         o.passed=true; // phase through during ghost
         showMsg('👻 PHASED!', o.x+o.w/2, o.y-20, '#dddddd');
       } else if(shieldActive){
-        // DESTROY the obstacle — don't break shield
+        // DESTROY the obstacle — 2 charges max then shield gone
         o.passed=true;
+        shieldCharges = (shieldCharges || 2) - 1;
         SFX.shieldHit(); haptic.heavy();
         spawnParticles(o.x+o.w/2, o.y+o.h/2, '#00ffff', 20);
         spawnParticles(o.x+o.w/2, o.y+o.h/2, '#ffffff', 10);
-        frame += 15; // bonus score for destroying
-        showMsg('💥 DESTROYED!', o.x+o.w/2, o.y-20, '#00ffff', true);
-        // Feature 2: Boss loot drop
+        frame += 15;
+        // Boss loot drop
         const dropCount = o.isBoss ? 5 : 2;
         for(let ci=0;ci<dropCount;ci++) coins.push({x:o.x+ci*12,y:o.y-20,r:6,collected:false});
-        showMsg('💎 LOOT DROP!', o.x+o.w/2, o.y-40, '#ffcc00', true);
+        if(shieldCharges <= 0){
+          shieldActive = false;
+          showMsg('🛡 SHIELD GONE!', frog.x+frog.w/2, frog.y-30, '#00ffff', true);
+        } else {
+          showMsg('💥 DESTROYED! (1 left)', o.x+o.w/2, o.y-20, '#00ffff', true);
+          showMsg('💎 LOOT DROP!', o.x+o.w/2, o.y-40, '#ffcc00', false);
+        }
       } else { gameOver(); ctx.restore(); return; }
     }
   }
@@ -2149,8 +2155,8 @@ function loop() {
         showMsg('👻 GHOST MODE!',frog.x+frog.w/2,frog.y-30,'#dddddd',true);
         spawnParticles(p.x+p.w/2,p.y+p.h/2,'#dddddd',14);
       } else {
-        shieldActive=true; SFX.shield();
-        showMsg('🛡 DESTROYER MODE!',frog.x+frog.w/2,frog.y-30,'#00ffff',true);
+        shieldActive=true; shieldCharges=2; SFX.shield();
+        showMsg('🛡 DESTROYER x2!',frog.x+frog.w/2,frog.y-30,'#00ffff',true);
         totalShields++; localStorage.setItem('ngmi_total_shields', totalShields);
         if (totalShields >= 5) unlockAchievement('shield_master');
       }
