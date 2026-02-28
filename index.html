@@ -785,7 +785,7 @@ function showStats() {
       <div><div class="stat-label">ACHIEVEMENTS</div><div class="stat-val">${achievements.length}/${ACHIEVEMENT_DEFS.length}</div></div>
       <div><div class="stat-label">SHIELDS USED</div><div class="stat-val">${totalShields}</div></div>
     </div>
-    <div class="sub" style="margin-top:4px">SKINS UNLOCKED: ${SKINS.filter(s=>best>=s.unlockAt).length} / ${SKINS.length}</div>
+    <div class="sub" style="margin-top:4px">SKINS UNLOCKED: ${SKINS.filter(s=>isSkinUnlocked(s)).length} / ${SKINS.length}</div>
     <div class="referral-info" style="margin-top:4px">YOUR REF LINK: <span>t.me/NGMI_TON_BOT?startapp=ref_${myRefCode}</span></div>
     <button class="btn btn-lb" onclick="showStart()">[ BACK ]</button>
   `;
@@ -1203,46 +1203,29 @@ function spawnPowerup() {
 // ─── DRAW FUNCTIONS ──────────────────────────────────────────────────────────
 function drawFrog(dead) {
   const sk = getSkin();
-  const cx=frog.x+frog.w/2, cy=frog.y+frog.h/2;
+  const cx = frog.x + frog.w/2, cy = frog.y + frog.h/2;
   if (shieldActive && !dead) {
     ctx.save();
     const t = Date.now()/300;
     ctx.strokeStyle = `hsla(${180+Math.sin(t)*30},100%,60%,${0.4+Math.sin(t*2)*0.3})`;
     ctx.lineWidth = 3; ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 15;
-    ctx.beginPath(); ctx.ellipse(cx,cy,22,22,0,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(cx, cy, 22, 22, 0, 0, Math.PI*2); ctx.stroke();
     ctx.restore();
   }
   if (turboFrames > 0 && !dead) {
     ctx.fillStyle = `rgba(255,100,0,${0.15 * (turboFrames/180)})`;
-    ctx.beginPath(); ctx.ellipse(cx-8,cy,12,10,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx-8, cy, 12, 10, 0, 0, Math.PI*2); ctx.fill();
   }
   ctx.save();
   ctx.translate(cx, cy);
   if (turboFrames > 0 && !dead) ctx.rotate(-0.2);
   ctx.scale(frogScale.x, frogScale.y);
-  ctx.translate(-cx, -cy);
-  ctx.fillStyle = dead ? '#334433' : sk.dark;
-  ctx.beginPath(); ctx.ellipse(cx,cy+4,17,14,0,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle = dead ? '#3a5a3a' : (turboFrames>0 ? '#5a8a2a' : sk.body);
-  ctx.beginPath(); ctx.ellipse(cx,cy,15,12,0,0,Math.PI*2); ctx.fill();
-  const ec = dead ? '#555' : sk.eyes;
-  [-6,6].forEach(ox=>{
-    ctx.fillStyle='#111'; ctx.beginPath(); ctx.ellipse(cx+ox,cy-5,5,5,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle=ec;     ctx.beginPath(); ctx.ellipse(cx+ox,cy-5,3,3,0,0,Math.PI*2); ctx.fill();
-  });
-  ctx.strokeStyle=dead?'#222':'#1a3a1a'; ctx.lineWidth=2;
-  if(dead){
-    ctx.beginPath(); ctx.arc(cx,cy+3,5,0.2,Math.PI-0.2); ctx.stroke();
-    ctx.strokeStyle='#555'; ctx.lineWidth=1.5;
-    [[-8,-4],[-4,-8]].forEach(([a,b])=>{ ctx.beginPath(); ctx.moveTo(cx+a,cy-7); ctx.lineTo(cx+b,cy-3); ctx.stroke(); });
-    [[4,8],[8,4]].forEach(([a,b])=>{ ctx.beginPath(); ctx.moveTo(cx+a,cy-7); ctx.lineTo(cx+b,cy-3); ctx.stroke(); });
-    ctx.fillStyle='#4499ff'; ctx.beginPath(); ctx.ellipse(cx-6,cy-1,2,4,0,0,Math.PI*2); ctx.fill();
-  } else {
-    ctx.beginPath(); ctx.arc(cx,cy+6,4,Math.PI+0.3,-0.3); ctx.stroke();
-  }
-  ctx.strokeStyle=dead?'#334433':sk.dark; ctx.lineWidth=3;
-  ctx.beginPath(); ctx.moveTo(cx-10,cy+10); ctx.lineTo(cx-14,cy+17); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx+10,cy+10); ctx.lineTo(cx+14,cy+17); ctx.stroke();
+  ctx.font = '28px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.globalAlpha = dead ? 0.5 : 1;
+  ctx.fillText(dead ? '💀' : sk.emoji, 0, 0);
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -1406,7 +1389,7 @@ async function gameOver() {
   state='dead'; frog.dead=true;
   SFX.gameover(); haptic.error(); triggerShake();
   stopMusic();
-  const finalDisplayScore = Math.round(score * getStreakMultiplier());
+  const finalDisplayScore = Math.round(score * getStreakMultiplier() * getHolderMultiplier());
   saveBest(finalDisplayScore);
   updateStats(finalDisplayScore, sessionCoins);
 
@@ -1455,6 +1438,7 @@ async function gameOver() {
     const hardTxt = hardMode ? `<div class="sub" style="color:#0055ff88">⚡ HARD MODE ACTIVE</div>` : (finalDisplayScore>=40?`<div class="sub" style="color:#ff660066">REACH 50 TO UNLOCK HARD MODE</div>`:'');
     const coinsTxt = sessionCoins > 0 ? `<div class="sub" style="color:#ffcc0077">🪙 ${sessionCoins} COINS THIS RUN</div>` : '';
     const streakTxt = streakCount >= 2 ? `<div class="sub" style="color:#ff660088">🔥 ${streakCount} DAY STREAK · x${getStreakMultiplier().toFixed(2)} MULTIPLIER</div>` : '';
+    const holderTxt = holderVerified ? `<div class="sub" style="color:#00ccff88">💎 HOLDER BONUS x1.2 APPLIED</div>` : '';
     const dailyTxt = isDailyMode ? `<div class="sub" style="color:#ffcc0088">✅ DAILY CHALLENGE COMPLETE!</div>` : '';
     const ol = document.getElementById('overlay');
     ol.style.display='flex';
@@ -1462,7 +1446,7 @@ async function gameOver() {
       <h1 style="font-size:2.4rem">RUGGED</h1>
       <div class="big-score">${finalDisplayScore} pts</div>
       <div class="verdict">${verdict}</div>
-      ${rankTxt}${coinsTxt}${streakTxt}${dailyTxt}${hardTxt}
+      ${rankTxt}${coinsTxt}${streakTxt}${holderTxt}${dailyTxt}${hardTxt}
       <div id="lb-wrap" style="width:90%">${lbHtml}</div>
       <button class="btn" onclick="startGame(false)">[ TRY AGAIN ]</button>
       <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
@@ -1697,6 +1681,12 @@ function loop() {
   if(dodgeStreak>0 && dodgeStreak<10){
     ctx.fillStyle='#ffffff44'; ctx.font='10px "Share Tech Mono"'; ctx.textAlign='right';
     ctx.fillText(`STREAK ${dodgeStreak}/10`, W-8, streakCount>=2?50:34);
+  }
+  // Holder bonus HUD
+  if (holderVerified) {
+    ctx.fillStyle='#00ccff66'; ctx.font='10px "Share Tech Mono"'; ctx.textAlign='left';
+    const hudY = shieldActive ? 46 : (hardMode ? 32 : 18);
+    ctx.fillText('💎 HOLDER x1.2', 8, hudY + 14);
   }
   // Referral bonus
   if (referrer) {
