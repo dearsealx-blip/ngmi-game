@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>$NGMI — Chart Surfer</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://unpkg.com/@tonconnect/ui@2.0.5/dist/tonconnect-ui.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -669,24 +670,139 @@ function saveBest(s) {
   }
 }
 
-// ─── HOLDER BONUS ─────────────────────────────────────────────────────────────
+// ─── TON CONNECT + HOLDER VERIFICATION ──────────────────────────────────────
+const NGMI_CONTRACT = 'EQAVM23T_9nry_aV0BTc0DvmvsIJwfsgKGAnhXfEHBeYZVEI';
+const TONCENTER_API = 'https://toncenter.com/api/v2';
+
+let tonConnectUI = null;
 let holderVerified = localStorage.getItem('ngmi_holder_verified') === '1';
-function verifyHolder() {
-  try { if (tg?.openTelegramLink) tg.openTelegramLink('https://t.me/NGMI_Ton'); else window.open('https://t.me/NGMI_Ton','_blank'); } catch(e) {}
-  localStorage.setItem('ngmi_holder_verified', '1');
-  holderVerified = true;
-  showStart();
+let holderBalance = parseInt(localStorage.getItem('ngmi_holder_balance') || '0');
+let connectedWallet = localStorage.getItem('ngmi_wallet_addr') || null;
+
+// Initialize TON Connect
+function initTonConnect() {
+  try {
+    if (window.TonConnectUI) {
+      tonConnectUI = new window.TonConnectUI.TonConnectUI({
+        manifestUrl: 'https://dearsealx-blip.github.io/ngmi-game/tonconnect-manifest.json',
+      });
+      tonConnectUI.onStatusChange(wallet => {
+        if (wallet) {
+          const addr = wallet.account.address;
+          connectedWallet = addr;
+          localStorage.setItem('ngmi_wallet_addr', addr);
+          checkNgmiBalance(addr);
+        } else {
+          connectedWallet = null;
+          holderVerified = false;
+          holderBalance = 0;
+          localStorage.removeItem('ngmi_wallet_addr');
+          localStorage.removeItem('ngmi_holder_verified');
+          localStorage.removeItem('ngmi_holder_balance');
+          renderHolderBonusDisplay();
+        }
+      });
+    }
+  } catch(e) { console.log('TON Connect init failed:', e); }
 }
-function getHolderMultiplier() { return holderVerified ? 1.2 : 1.0; }
+
+async function checkNgmiBalance(addr) {
+  try {
+    // Convert friendly addr to raw if needed
+    const rawAddr = addr.startsWith('0:') ? addr : addr;
+    const res = await fetch(`${TONCENTER_API}/getTokenData?address=${encodeURIComponent(NGMI_CONTRACT)}`);
+    // Use jetton wallet lookup
+    const jwRes = await fetch(`${TONCENTER_API}/runGetMethod`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        address: NGMI_CONTRACT,
+        method: 'get_wallet_address',
+        stack: [['tvm.Slice', addr]]
+      })
+    });
+    // Fallback: use jettons API
+    const jRes = await fetch(`https://tonapi.io/v2/accounts/${encodeURIComponent(addr)}/jettons/${encodeURIComponent(NGMI_CONTRACT)}`);
+    if (jRes.ok) {
+      const jData = await jRes.json();
+      const balance = parseInt(jData.balance || '0');
+      holderBalance = Math.floor(balance / 1e9); // convert from nano
+      localStorage.setItem('ngmi_holder_balance', holderBalance);
+      if (holderBalance > 0) {
+        holderVerified = true;
+        localStorage.setItem('ngmi_holder_verified', '1');
+      } else {
+        holderVerified = false;
+        localStorage.removeItem('ngmi_holder_verified');
+      }
+    } else {
+      // If API fails, give benefit of doubt if wallet connected
+      holderVerified = true;
+      holderBalance = -1; // unknown
+      localStorage.setItem('ngmi_holder_verified', '1');
+    }
+    renderHolderBonusDisplay();
+    showStart();
+  } catch(e) {
+    // On error, trust the wallet connection
+    holderVerified = true;
+    localStorage.setItem('ngmi_holder_verified', '1');
+    renderHolderBonusDisplay();
+    showStart();
+  }
+}
+
+function getHolderMultiplier() {
+  if (!holderVerified) return 1.0;
+  if (holderBalance >= 1000000) return 1.5;  // 1M+ NGMI = +50%
+  if (holderBalance >= 100000)  return 1.35; // 100k+ NGMI = +35%
+  if (holderBalance >= 10000)   return 1.25; // 10k+ NGMI = +25%
+  return 1.2; // any NGMI = +20%
+}
+
+function getHolderTier() {
+  if (!holderVerified) return null;
+  if (holderBalance >= 1000000) return { label: '🐳 MEGA WHALE', color: '#ff0033', bonus: '+50%' };
+  if (holderBalance >= 100000)  return { label: '🐋 WHALE',      color: '#9900cc', bonus: '+35%' };
+  if (holderBalance >= 10000)   return { label: '💎 DIAMOND',    color: '#00ccff', bonus: '+25%' };
+  return { label: '🐸 HOLDER', color: '#00ff66', bonus: '+20%' };
+}
+
+async function verifyHolder() {
+  if (tonConnectUI) {
+    try {
+      await tonConnectUI.openModal();
+    } catch(e) {
+      // Fallback if TON Connect fails
+      holderVerified = true;
+      localStorage.setItem('ngmi_holder_verified', '1');
+      renderHolderBonusDisplay();
+      showStart();
+    }
+  } else {
+    // Fallback: join channel method
+    try { if (tg?.openTelegramLink) tg.openTelegramLink('https://t.me/NGMI_Ton'); else window.open('https://t.me/NGMI_Ton','_blank'); } catch(e) {}
+    holderVerified = true;
+    localStorage.setItem('ngmi_holder_verified', '1');
+    renderHolderBonusDisplay();
+    showStart();
+  }
+}
+
 function renderHolderBonusDisplay() {
   const el = document.getElementById('holder-bonus-display');
   if (!el) return;
-  if (holderVerified) {
-    el.innerHTML = `<div class="holder-bonus-text verified">💎 HOLDER BONUS ACTIVE · +20% SCORE</div>`;
+  const tier = getHolderTier();
+  if (holderVerified && tier) {
+    const balTxt = holderBalance > 0 ? ` · ${holderBalance.toLocaleString()} $NGMI` : '';
+    el.innerHTML = `<div class="holder-bonus-text verified" style="color:${tier.color}">${tier.label} BONUS ACTIVE · ${tier.bonus}${balTxt}</div>`;
   } else {
-    el.innerHTML = `<div class="holder-bonus-text">🐸 NGMI holders get +20% score bonus</div><button class="btn btn-holder" onclick="verifyHolder()">[ VERIFY HOLDER ]</button>`;
+    el.innerHTML = `<div class="holder-bonus-text">💎 $NGMI holders get score bonuses (+20% to +50%)</div><button class="btn btn-holder" onclick="verifyHolder()">[ CONNECT WALLET ]</button>`;
   }
 }
+
+// Init on load
+setTimeout(initTonConnect, 500);
 
 // ─── SKINS ───────────────────────────────────────────────────────────────────
 const SKINS = [
@@ -862,6 +978,7 @@ function showStats() {
         <div><div class="stat-label">BEST STREAK</div><div class="stat-val">${Math.max(streakCount,parseInt(localStorage.getItem('ngmi_best_streak')||'0'))} 🔥</div></div>
       </div>
       <div class="referral-info" style="margin-top:16px;padding:8px;border:1px solid #00ff6622">YOUR REF LINK: <span>t.me/NGMI_TON_BOT?startapp=ref_${myRefCode}</span></div>
+      ${connectedWallet ? `<div style="margin-top:8px;font-size:0.6rem;color:#00ccff55;letter-spacing:1px;text-align:center">WALLET: ${connectedWallet.slice(0,8)}...${connectedWallet.slice(-6)} <button onclick="if(tonConnectUI)tonConnectUI.disconnect()" style="background:transparent;border:1px solid #ff003333;color:#ff003355;font-family:'VT323',monospace;font-size:0.8rem;padding:1px 6px;cursor:pointer;margin-left:6px">DISCONNECT</button></div>` : ''}
     </div>
     <div class="screen-footer"><button class="btn btn-lb" style="font-size:1.3rem;padding:8px 48px" onclick="showStart()">[ BACK ]</button></div>
   `;
@@ -1110,7 +1227,7 @@ function getDayNightColors() {
 // ─── GAME STATE ───────────────────────────────────────────────────────────────
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
-const W=700, H=300, GROUND=H-56, GRAVITY=0.55, JUMP=-12;
+const W=700, H=300, GROUND=H-56, GRAVITY=0.45, JUMP=-13;
 
 let state='idle', score=0, frame=0, speed=4, combo=0;
 let chartPoints=[], chartOffset=0, bgOffset=0;
@@ -1274,14 +1391,14 @@ function spawnCoinCluster() {
 
 // ─── SPAWNERS ────────────────────────────────────────────────────────────────
 function spawnObstacle() {
-  const types = hardMode ? ['rug','honeypot','dev','sec','sec','fomo'] : ['rug','honeypot','dev','fomo'];
+  const types = hardMode ? ['rug','honeypot','dev','sec','sec','fomo'] : ['rug','honeypot','dev'];
   const type = types[Math.floor(gameRand()*types.length)];
   const h = 28+gameRand()*32;
   const bobs = gameRand() < 0.3;
   const baseY = GROUND+frog.h-h;
   obstacles.push({x:W+20,y:baseY,baseY,w:22,h,type,passed:false,bobs,bobPhase:gameRand()*Math.PI*2});
-  const base = hardMode ? 45 : 65;
-  nextObstacle = base + gameRand()*45;
+  const base = hardMode ? 80 : 120;
+  nextObstacle = base + gameRand()*80;
 }
 
 function spawnBoss() {
@@ -1553,7 +1670,7 @@ async function gameOver() {
   }
 
   const verdict = finalDisplayScore<10?'STAY POOR':finalDisplayScore<30?'CLASSIC NGMI':finalDisplayScore<60?'ALMOST WAGMI':finalDisplayScore<100?'BASED FROG':'LEGEND ANON';
-  if(finalDisplayScore>=50) { localStorage.setItem('ngmi_hardmode','1'); hardMode=true; }
+  if(finalDisplayScore>=150) { localStorage.setItem('ngmi_hardmode','1'); hardMode=true; }
 
   setTimeout(async()=>{
     const [rows, myRank] = await Promise.all([getLeaderboard(), getMyRank(finalDisplayScore)]);
@@ -1612,8 +1729,8 @@ function loop() {
   // Apply streak multiplier to displayed score
   const rawScore = Math.floor(frame/6);
   score = Math.round(rawScore * getStreakMultiplier());
-  const baseSpeed = hardMode ? 4.5 : 4;
-  speed = baseSpeed + rawScore*0.025 + (turboFrames>0?3:0);
+  const baseSpeed = hardMode ? 3.5 : 2.5;
+  speed = baseSpeed + rawScore*0.008 + (turboFrames>0?2:0);
   document.getElementById('score').textContent = score;
 
   if (!newBestShown && score > best && best > 0) {
@@ -1865,9 +1982,11 @@ function loop() {
   }
   // Holder bonus HUD
   if (holderVerified) {
-    ctx.fillStyle='#00ccff66'; ctx.font='10px "Share Tech Mono"'; ctx.textAlign='left';
+    const tier = getHolderTier();
+    ctx.fillStyle = tier ? tier.color+'99' : '#00ccff66';
+    ctx.font='10px "Share Tech Mono"'; ctx.textAlign='left';
     const hudY = shieldActive ? 46 : (hardMode ? 32 : 18);
-    ctx.fillText('💎 HOLDER x1.2', 8, hudY + 14);
+    ctx.fillText(`${tier?tier.label:'💎'} x${getHolderMultiplier().toFixed(2)}`, 8, hudY + 14);
   }
   // Referral bonus
   if (referrer) {
