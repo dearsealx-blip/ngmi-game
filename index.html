@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>$NGMI — Chart Surfer</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { background: #000; color: #fff; font-family: 'Share Tech Mono', monospace; overflow: hidden; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; user-select: none; touch-action: none; }
+#scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.08) 0px, rgba(0,0,0,0.08) 1px, transparent 1px, transparent 4px); pointer-events: none; z-index: 100; }
+#bg-grid { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-image: linear-gradient(rgba(255,0,51,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,0,51,0.04) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
+#game-wrap { position: relative; width: 100%; max-width: 700px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px; height: 100vh; justify-content: center; }
+#header { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0 4px; }
+#title { font-family: 'VT323', monospace; font-size: 2.2rem; color: #ff0033; text-shadow: 0 0 20px #ff003388, 2px 2px 0 #aa0022; letter-spacing: 2px; }
+#score-board { display: flex; gap: 16px; font-size: 0.8rem; color: #ff003399; }
+#score-board span { color: #ff0033; font-size: 0.95rem; }
+#canvas-wrap { position: relative; width: 100%; border: 1px solid #ff003444; box-shadow: 0 0 30px #ff003322, inset 0 0 20px #0a0000; }
+canvas { display: block; width: 100%; background: #050000; }
+#controls { font-size: 0.7rem; color: #ff003355; letter-spacing: 2px; }
+#overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: rgba(0,0,0,0.88); z-index: 10; }
+#overlay h1 { font-family: 'VT323', monospace; font-size: 3.2rem; color: #ff0033; text-shadow: 0 0 30px #ff0033; animation: flicker 2.5s infinite; }
+.sub { font-size: 0.75rem; color: #ff003377; letter-spacing: 3px; text-align: center; line-height: 1.9; }
+.big-score { font-family: 'VT323', monospace; font-size: 2.8rem; color: #fff; text-shadow: 0 0 10px #fff5; }
+.verdict { font-family: 'VT323', monospace; font-size: 1.5rem; color: #ffaa00; text-shadow: 0 0 10px #ffaa0066; }
+.btn { background: transparent; border: 2px solid #ff0033; color: #ff0033; font-family: 'VT323', monospace; font-size: 1.6rem; padding: 6px 36px; cursor: pointer; letter-spacing: 4px; transition: all 0.15s; box-shadow: 0 0 15px #ff003333; }
+.btn:hover, .btn:active { background: #ff0033; color: #000; box-shadow: 0 0 30px #ff0033; }
+.btn-lb { border-color: #ff003366; color: #ff003388; font-size: 1.2rem; padding: 4px 24px; }
+.btn-lb:hover, .btn-lb:active { background: #ff003322; color: #ff0033; }
+#lb-wrap { width: 100%; max-height: 140px; overflow-y: auto; border: 1px solid #ff003333; background: #0a0000; }
+#lb-wrap::-webkit-scrollbar { width: 4px; }
+#lb-wrap::-webkit-scrollbar-track { background: #000; }
+#lb-wrap::-webkit-scrollbar-thumb { background: #ff003344; }
+.lb-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; font-size: 0.75rem; border-bottom: 1px solid #ff000a; color: #ff003388; }
+.lb-row:first-child { color: #ffaa00; }
+.lb-row:nth-child(2) { color: #aaaaaa; }
+.lb-row:nth-child(3) { color: #cc6622; }
+.lb-row .rank { width: 24px; color: inherit; }
+.lb-row .name { flex: 1; padding: 0 8px; color: #fff8; }
+.lb-row .pts { color: inherit; }
+.lb-row.me { background: #ff003311; }
+.lb-row.me .name { color: #ff0033; }
+.lb-loading { text-align: center; padding: 12px; font-size: 0.7rem; color: #ff003344; letter-spacing: 2px; }
+@keyframes flicker { 0%, 94%, 100% { opacity: 1; } 95% { opacity: 0.3; } 97% { opacity: 0.8; } 98% { opacity: 0.1; } 99% { opacity: 1; } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+</style>
+</head>
+<body>
+<div id="scanlines"></div>
+<div id="bg-grid"></div>
+<div id="game-wrap">
+  <div id="header">
+    <div id="title">$NGMI</div>
+    <div id="score-board">SCORE: <span id="score">0</span> &nbsp; BEST: <span id="best">0</span></div>
+  </div>
+  <div id="canvas-wrap">
+    <canvas id="c" width="700" height="300"></canvas>
+    <div id="overlay">
+      <h1>$NGMI</h1>
+      <div class="sub">SURF THE CHART · AVOID THE RUGS</div>
+      <button class="btn" onclick="startGame()">[ PLAY ]</button>
+      <button class="btn btn-lb" onclick="showLeaderboard()">[ LEADERBOARD ]</button>
+      <div class="sub">SPACE / TAP to jump · Double jump allowed</div>
+    </div>
+  </div>
+  <div id="controls">[ SPACE / TAP ] JUMP &nbsp;·&nbsp; SURVIVE THE CHART</div>
+</div>
+<script>
+const SUPABASE_URL='https://rfixnwwzkvkzcfidjzer.supabase.co';
+const SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmaXhud3d6a3ZremNmaWRqemVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNDI4MTYsImV4cCI6MjA4NzgxODgxNn0.PnaFSonJyViAFRmuclgWIcEaoLHltotbbFheMWDzS84';
+const tg=window.Telegram?.WebApp;
+if(tg){tg.ready();tg.expand();}
+const TG_USER=tg?.initDataUnsafe?.user;
+const playerName=TG_USER?(TG_USER.username?'@'+TG_USER.username:TG_USER.first_name||'anon'):'anon';
+async function submitScore(score){try{const res=await fetch(`${SUPABASE_URL}/rest/v1/scores`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON,'Authorization':`Bearer ${SUPABASE_ANON}`,'Prefer':'return=minimal'},body:JSON.stringify({username:playerName,score})});return res.ok;}catch(e){return false;}}
+async function getLeaderboard(){try{const res=await fetch(`${SUPABASE_URL}/rest/v1/scores?select=username,score&order=score.desc&limit=10`,{headers:{'apikey':SUPABASE_ANON,'Authorization':`Bearer ${SUPABASE_ANON}`}});return res.ok?await res.json():[];}catch(e){return[];}}
+async function showLeaderboard(){const ol=document.getElementById('overlay');ol.style.display='flex';ol.innerHTML=`<h1 style="font-size:2rem">LEADERBOARD</h1><div id="lb-wrap"><div class="lb-loading" style="animation:pulse 1s infinite">LOADING...</div></div><button class="btn btn-lb" onclick="showStart()">[ BACK ]</button>`;const rows=await getLeaderboard();const lbEl=document.getElementById('lb-wrap');if(!rows.length){lbEl.innerHTML='<div class="lb-loading">NO SCORES YET. BE FIRST.</div>';return;}lbEl.innerHTML=rows.map((r,i)=>`<div class="lb-row ${r.username===playerName?'me':''}"><span class="rank">${['🥇','🥈','🥉'][i]||`#${i+1}`}</span><span class="name">${r.username}</span><span class="pts">${r.score} pts</span></div>`).join('');}
+function showStart(){const ol=document.getElementById('overlay');ol.style.display='flex';ol.innerHTML=`<h1>$NGMI</h1><div class="sub">SURF THE CHART · AVOID THE RUGS</div><button class="btn" onclick="startGame()">[ PLAY ]</button><button class="btn btn-lb" onclick="showLeaderboard()">[ LEADERBOARD ]</button><div class="sub">SPACE / TAP to jump · Double jump allowed</div>`;}
+const canvas=document.getElementById('c');const ctx=canvas.getContext('2d');
+const W=700,H=300,GROUND=H-56,GRAVITY=0.55,JUMP=-12;
+let state='idle',score=0,best=0,frame=0,speed=4,combo=0;
+let chartPoints=[],chartOffset=0,particles=[],messages=[],obstacles=[],candles=[];
+let nextObstacle=90,nextCandle=70,noiseState=0;
+const frog={x:90,y:GROUND,vy:0,w:34,h:34,jumpCount:0,dead:false};
+function noise(x){return Math.sin(x*7.3+noiseState)*0.5+Math.sin(x*3.1+noiseState*0.7)*0.5;}
+function initChart(){chartPoints=[];for(let x=0;x<=W+20;x+=5)chartPoints.push(noise(x*0.01)*28+GROUND-8);}
+function startGame(){document.getElementById('overlay').style.display='none';state='playing';score=0;frame=0;speed=4;combo=0;Object.assign(frog,{y:GROUND,vy:0,dead:false,jumpCount:0});obstacles=[];candles=[];particles=[];messages=[];nextObstacle=100;nextCandle=80;noiseState=Math.random()*1000;initChart();requestAnimationFrame(loop);}
+function jump(){if(state!=='playing')return;if(frog.jumpCount<2){frog.vy=JUMP;frog.jumpCount++;spawnParticles(frog.x+frog.w/2,frog.y+frog.h,'#ff0033',6);}}
+document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();jump();}});
+canvas.addEventListener('pointerdown',e=>{e.preventDefault();jump();});
+function spawnParticles(x,y,color,n){for(let i=0;i<n;i++)particles.push({x,y,vx:(Math.random()-.5)*4,vy:Math.random()*-3-1,life:1,color,size:Math.random()*4+2});}
+function showMsg(text,x,y,color){messages.push({text,x,y,color,life:1,vy:-1.5});}
+function spawnObstacle(){const types=['rug','honeypot','dev'];const type=types[Math.floor(Math.random()*types.length)];const h=28+Math.random()*32;obstacles.push({x:W+20,y:GROUND+frog.h-h,w:22,h,type,passed:false});nextObstacle=65+Math.random()*55;}
+function spawnCandle(){candles.push({x:W+20,y:GROUND-38-Math.random()*55,w:18,h:28,collected:false});nextCandle=80+Math.random()*80;}
+function drawFrog(dead){const cx=frog.x+frog.w/2,cy=frog.y+frog.h/2;ctx.fillStyle=dead?'#334433':'#2a5a2a';ctx.beginPath();ctx.ellipse(cx,cy+4,17,14,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=dead?'#3a5a3a':'#348a34';ctx.beginPath();ctx.ellipse(cx,cy,15,12,0,0,Math.PI*2);ctx.fill();const ec=dead?'#555':'#ff0033';[-6,6].forEach(ox=>{ctx.fillStyle='#111';ctx.beginPath();ctx.ellipse(cx+ox,cy-5,5,5,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=ec;ctx.beginPath();ctx.ellipse(cx+ox,cy-5,3,3,0,0,Math.PI*2);ctx.fill();});ctx.strokeStyle=dead?'#222':'#1a3a1a';ctx.lineWidth=2;if(dead){ctx.beginPath();ctx.arc(cx,cy+3,5,0.2,Math.PI-0.2);ctx.stroke();ctx.strokeStyle='#555';ctx.lineWidth=1.5;[[-8,-4],[-4,-8]].forEach(([a,b])=>{ctx.beginPath();ctx.moveTo(cx+a,cy-7);ctx.lineTo(cx+b,cy-3);ctx.stroke();});[[4,8],[8,4]].forEach(([a,b])=>{ctx.beginPath();ctx.moveTo(cx+a,cy-7);ctx.lineTo(cx+b,cy-3);ctx.stroke();});ctx.fillStyle='#4499ff';ctx.beginPath();ctx.ellipse(cx-6,cy-1,2,4,0,0,Math.PI*2);ctx.fill();}else{ctx.beginPath();ctx.arc(cx,cy+6,4,Math.PI+0.3,-0.3);ctx.stroke();}ctx.strokeStyle=dead?'#334433':'#2a5a2a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(cx-10,cy+10);ctx.lineTo(cx-14,cy+17);ctx.stroke();ctx.beginPath();ctx.moveTo(cx+10,cy+10);ctx.lineTo(cx+14,cy+17);ctx.stroke();}
+function drawObstacle(o){const cols={rug:'#cc2200',honeypot:'#ffaa00',dev:'#9900cc'};const lbls={rug:'RUG',honeypot:'HONEY',dev:'DEV'};const c=cols[o.type];ctx.fillStyle=c+'22';ctx.fillRect(o.x,o.y,o.w,o.h);ctx.strokeStyle=c;ctx.lineWidth=2;ctx.strokeRect(o.x,o.y,o.w,o.h);ctx.save();ctx.beginPath();ctx.rect(o.x,o.y,o.w,o.h);ctx.clip();ctx.strokeStyle=c+'44';ctx.lineWidth=3;for(let i=-o.h;i<o.w+o.h;i+=10){ctx.beginPath();ctx.moveTo(o.x+i,o.y);ctx.lineTo(o.x+i+o.h,o.y+o.h);ctx.stroke();}ctx.restore();ctx.fillStyle=c;ctx.font='bold 8px "Share Tech Mono"';ctx.textAlign='center';ctx.fillText(lbls[o.type],o.x+o.w/2,o.y-4);}
+function drawCandle(c){ctx.fillStyle='#00ff6618';ctx.fillRect(c.x,c.y,c.w,c.h);ctx.shadowColor='#00ff66';ctx.shadowBlur=12;ctx.strokeStyle='#00ff66';ctx.lineWidth=2;ctx.strokeRect(c.x,c.y,c.w,c.h);ctx.beginPath();ctx.moveTo(c.x+c.w/2,c.y);ctx.lineTo(c.x+c.w/2,c.y-8);ctx.stroke();ctx.shadowBlur=0;}
+function drawChart(){chartOffset+=speed*0.5;if(chartOffset>=5){chartOffset=0;chartPoints.shift();chartPoints.push(noise(chartPoints.length*5*0.01+frame*0.005)*25+GROUND-5);}ctx.beginPath();chartPoints.forEach((pt,i)=>{const x=i*5-chartOffset;i===0?ctx.moveTo(x,pt):ctx.lineTo(x,pt);});ctx.strokeStyle='#ff003344';ctx.lineWidth=1.5;ctx.stroke();ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle='#ff000606';ctx.fill();}
+function drawGround(){ctx.fillStyle='#ff000412';ctx.fillRect(0,GROUND+frog.h,W,H-GROUND-frog.h);ctx.strokeStyle='#ff003344';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,GROUND+frog.h);ctx.lineTo(W,GROUND+frog.h);ctx.stroke();}
+function collision(a,b){const p=6;return a.x+p<b.x+b.w&&a.x+a.w-p>b.x&&a.y+p<b.y+b.h&&a.y+a.h-p>b.y;}
+async function gameOver(){state='dead';frog.dead=true;spawnParticles(frog.x+frog.w/2,frog.y+frog.h/2,'#ff0033',20);if(score>best)best=score;document.getElementById('best').textContent=best;await submitScore(score);const verdict=score<10?'STAY POOR':score<30?'CLASSIC NGMI':score<60?'ALMOST WAGMI':score<100?'BASED FROG':'LEGEND ANON';setTimeout(async()=>{const rows=await getLeaderboard();const lbHtml=rows.length?rows.map((r,i)=>`<div class="lb-row ${r.username===playerName?'me':''}"><span class="rank">${['🥇','🥈','🥉'][i]||'#'+(i+1)}</span><span class="name">${r.username}</span><span class="pts">${r.score}</span></div>`).join(''):'<div class="lb-loading">BE THE FIRST</div>';const ol=document.getElementById('overlay');ol.style.display='flex';ol.innerHTML=`<h1 style="font-size:2.4rem">RUGGED</h1><div class="big-score">${score} pts</div><div class="verdict">${verdict}</div><div id="lb-wrap" style="width:90%">${lbHtml}</div><button class="btn" onclick="startGame()">[ TRY AGAIN ]</button><button class="btn btn-lb" onclick="showLeaderboard()">[ FULL LB ]</button>`;},700);}
+function loop(){if(state!=='playing')return;requestAnimationFrame(loop);frame++;score=Math.floor(frame/6);speed=4+score*0.025;document.getElementById('score').textContent=score;ctx.clearRect(0,0,W,H);ctx.fillStyle='#050000';ctx.fillRect(0,0,W,H);drawChart();drawGround();frog.vy+=GRAVITY;frog.y+=frog.vy;if(frog.y>=GROUND){frog.y=GROUND;frog.vy=0;frog.jumpCount=0;}if(--nextObstacle<=0)spawnObstacle();obstacles=obstacles.filter(o=>o.x>-50);for(const o of obstacles){o.x-=speed;drawObstacle(o);if(!o.passed&&o.x+o.w<frog.x){o.passed=true;combo++;spawnParticles(o.x,o.y,'#fff',4);}if(collision(frog,o)){gameOver();return;}}if(--nextCandle<=0)spawnCandle();candles=candles.filter(c=>c.x>-50&&!c.collected);for(const c of candles){c.x-=speed;drawCandle(c);if(collision(frog,c)){c.collected=true;spawnParticles(c.x+c.w/2,c.y+c.h/2,'#00ff66',10);const bonus=Math.max(combo,1);frame+=bonus*5;showMsg(['+BASED','+PUMP','+GREEN','+WAGMI'][Math.floor(Math.random()*4)],c.x+c.w/2,c.y-10,'#00ff66');}}particles=particles.filter(p=>p.life>0);for(const p of particles){ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life-=0.04;}ctx.globalAlpha=1;messages=messages.filter(m=>m.life>0);for(const m of messages){ctx.globalAlpha=m.life;ctx.fillStyle=m.color;ctx.font='16px "VT323"';ctx.textAlign='center';ctx.fillText(m.text,m.x,m.y);m.y+=m.vy;m.life-=0.025;}ctx.globalAlpha=1;drawFrog(false);ctx.fillStyle='#ff003366';ctx.font='11px "Share Tech Mono"';ctx.textAlign='right';ctx.fillText(`SPD ${speed.toFixed(1)}x`,W-8,18);if(combo>1){ctx.fillStyle='#ffaa00';ctx.font='14px "VT323"';ctx.fillText(`x${combo} COMBO`,W-8,34);}}
+</script>
+</body>
+</html>
