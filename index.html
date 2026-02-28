@@ -694,37 +694,30 @@ async function showScoreCard(s, rank) {
   sx.fillStyle = '#ff003388';
   sx.textAlign = 'center';
   sx.fillText('Play: t.me/NGMI_TON_BOT', 200, 292);
-  // Show card in-app modal (works in Telegram Mini App)
-  const dataUrl = sc.toDataURL('image/png');
+  // Upload to Supabase Storage and share
+  const STORAGE_URL = 'https://rfixnwwzkvkzcfidjzer.supabase.co/storage/v1/object/scorecards/';
+  const STORAGE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmaXhud3d6a3ZremNmaWRqemVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNDI4MTYsImV4cCI6MjA4NzgxODgxNn0.PnaFSonJyViAFRmuclgWIcEaoLHltotbbFheMWDzS84';
+  const PUBLIC_URL = 'https://rfixnwwzkvkzcfidjzer.supabase.co/storage/v1/object/public/scorecards/';
 
-  // Build modal
+  // Show modal immediately with loading state
   const modal = document.createElement('div');
   modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;';
 
   const img = document.createElement('img');
-  img.src = dataUrl;
+  img.src = sc.toDataURL('image/png');
   img.style.cssText = 'max-width:90%;border:2px solid #ff0033;box-shadow:0 0 30px #ff003366;';
 
-  const hint = document.createElement('div');
-  hint.textContent = 'PRESS & HOLD IMAGE TO SAVE';
-  hint.style.cssText = "font-family:'VT323',monospace;font-size:1rem;color:#ff003388;letter-spacing:2px;";
+  const statusEl = document.createElement('div');
+  statusEl.textContent = 'UPLOADING...';
+  statusEl.style.cssText = "font-family:'VT323',monospace;font-size:1rem;color:#ffaa00;letter-spacing:2px;";
 
   const btnRow = document.createElement('div');
   btnRow.style.cssText = 'display:flex;gap:12px;';
 
   const shareBtn = document.createElement('button');
   shareBtn.textContent = '[ SHARE ]';
-  shareBtn.style.cssText = "background:transparent;border:2px solid #ff0033;color:#ff0033;font-family:'VT323',monospace;font-size:1.4rem;padding:6px 24px;cursor:pointer;";
-  shareBtn.onclick = () => {
-    const shareText = `I scored ${s} pts in NGMI Chart Surfer! Can you beat me? Play: https://t.me/NGMI_TON_BOT`;
-    try {
-      if (tg?.openTelegramLink) {
-        tg.openTelegramLink(`https://t.me/share/url?url=https://t.me/NGMI_TON_BOT&text=${encodeURIComponent(`I scored ${s} pts in NGMI! Can you beat me?`)}`);
-      } else if (navigator.share) {
-        navigator.share({ title: 'NGMI Score', text: shareText, url: 'https://t.me/NGMI_TON_BOT' });
-      }
-    } catch(e) {}
-  };
+  shareBtn.disabled = true;
+  shareBtn.style.cssText = "background:transparent;border:2px solid #ff003355;color:#ff003355;font-family:'VT323',monospace;font-size:1.4rem;padding:6px 24px;cursor:pointer;";
 
   const closeBtn = document.createElement('button');
   closeBtn.textContent = '[ CLOSE ]';
@@ -734,9 +727,57 @@ async function showScoreCard(s, rank) {
   btnRow.appendChild(shareBtn);
   btnRow.appendChild(closeBtn);
   modal.appendChild(img);
-  modal.appendChild(hint);
+  modal.appendChild(statusEl);
   modal.appendChild(btnRow);
   document.body.appendChild(modal);
+
+  // Upload blob to Supabase Storage
+  sc.toBlob(async blob => {
+    try {
+      const filename = `${myRefCode}_${Date.now()}.png`;
+      const res = await fetch(STORAGE_URL + filename, {
+        method: 'POST',
+        headers: { 'apikey': STORAGE_KEY, 'Authorization': 'Bearer ' + STORAGE_KEY, 'Content-Type': 'image/png', 'x-upsert': 'true' },
+        body: blob
+      });
+      if (!res.ok) throw new Error('Upload failed');
+
+      const imageUrl = PUBLIC_URL + filename;
+      const shareText = encodeURIComponent(`I scored ${s} pts in NGMI Chart Surfer! Can you beat me?\n${imageUrl}\nPlay: https://t.me/NGMI_TON_BOT`);
+
+      statusEl.textContent = 'READY TO SHARE';
+      statusEl.style.color = '#00ff66';
+
+      shareBtn.disabled = false;
+      shareBtn.style.borderColor = '#ff0033';
+      shareBtn.style.color = '#ff0033';
+      shareBtn.onclick = async () => {
+        // Try native share with file first (works on mobile)
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], 'ngmi-score.png', { type: 'image/png' })] })) {
+          try {
+            await navigator.share({ files: [new File([blob], 'ngmi-score.png', { type: 'image/png' })], text: `I scored ${s} pts in NGMI! Play: https://t.me/NGMI_TON_BOT` });
+            return;
+          } catch(e) {}
+        }
+        // Fallback: share URL via Telegram
+        if (tg?.openTelegramLink) {
+          tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(imageUrl)}&text=${encodeURIComponent(`I scored ${s} pts in NGMI Chart Surfer! Play: https://t.me/NGMI_TON_BOT`)}`);
+        } else {
+          window.location.href = `https://t.me/share/url?url=${encodeURIComponent(imageUrl)}&text=${encodeURIComponent(`I scored ${s} pts in NGMI!`)}`;
+        }
+      };
+    } catch(e) {
+      statusEl.textContent = 'UPLOAD FAILED — TRY AGAIN';
+      statusEl.style.color = '#ff0033';
+      // Fallback: native share without image
+      shareBtn.disabled = false;
+      shareBtn.style.borderColor = '#ff0033';
+      shareBtn.style.color = '#ff0033';
+      shareBtn.onclick = () => {
+        if (tg?.openTelegramLink) tg.openTelegramLink(`https://t.me/share/url?url=https://t.me/NGMI_TON_BOT&text=${encodeURIComponent(`I scored ${s} pts in NGMI! Can you beat me?`)}`);
+      };
+    }
+  }, 'image/png');
 }
 
 // ─── DAY/NIGHT ───────────────────────────────────────────────────────────────
