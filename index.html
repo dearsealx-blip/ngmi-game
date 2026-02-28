@@ -369,6 +369,13 @@ let dailyChallengesCompleted = parseInt(localStorage.getItem('ngmi_daily_count')
     const startapp = urlParams.get('startapp') || '';
     if (startapp.startsWith('ref_')) ref = startapp.replace('ref_','');
   }
+  // Read from Telegram Mini App start_param (t.me/NGMI_TON_BOT?startapp=ref_X)
+  if (!ref) {
+    try {
+      const sp = window.Telegram?.WebApp?.initDataUnsafe?.start_param || '';
+      if (sp.startsWith('ref_')) ref = sp.replace('ref_','');
+    } catch(e) {}
+  }
   if (ref && !localStorage.getItem('ngmi_referrer')) {
     localStorage.setItem('ngmi_referrer', ref);
   }
