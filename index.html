@@ -68,62 +68,63 @@ canvas { display: block; width: 100%; background: #050000; }
 </div>
 <script>
 // ─── AUDIO ENGINE ───────────────────────────────────────────────────────────
-const AudioCtx = window.AudioContext || window.webkitAudioContext;
+// Telegram webview requires AudioContext created + played SYNCHRONOUSLY
+// inside the exact gesture handler — no promises, no lazy init outside touch
 let actx = null;
-function getACtx() {
-  if (!actx) actx = new AudioCtx();
-  if (actx.state === 'suspended') actx.resume();
-  return actx;
-}
+let audioReady = false;
 
-// Telegram webview blocks audio — unlock on every touch/pointer event
-function unlockAudio() {
+function initAudioSync() {
+  // Must be called synchronously inside a user gesture
   try {
-    if (!actx) actx = new AudioCtx();
-    if (actx.state === 'suspended') {
-      actx.resume().then(() => {
-        const buf = actx.createBuffer(1, 1, 22050);
-        const src = actx.createBufferSource();
-        src.buffer = buf;
-        src.connect(actx.destination);
-        src.start(0);
-      });
-    }
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    // Play a real (but inaudible) tone synchronously to unlock the context
+    const osc = actx.createOscillator();
+    const g = actx.createGain();
+    g.gain.value = 0.001;
+    osc.connect(g); g.connect(actx.destination);
+    osc.start(actx.currentTime);
+    osc.stop(actx.currentTime + 0.001);
+    audioReady = true;
   } catch(e) {}
 }
-['touchstart','touchend','pointerdown','click'].forEach(evt =>
-  document.addEventListener(evt, unlockAudio, { passive: true })
-);
+
+// Attach to raw touch/pointer events so it fires synchronously on gesture
+function onGesture() {
+  if (!audioReady) initAudioSync();
+}
+document.addEventListener('touchstart', onGesture, { passive: true });
+document.addEventListener('pointerdown', onGesture, { passive: true });
+document.addEventListener('click', onGesture, { passive: true });
 
 function playTone(freq, type, duration, vol, freqEnd) {
+  if (!actx || !audioReady) return;
   try {
-    const ac = getACtx();
-    const osc = ac.createOscillator();
-    const gain = ac.createGain();
-    osc.connect(gain); gain.connect(ac.destination);
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.connect(gain); gain.connect(actx.destination);
     osc.type = type;
-    osc.frequency.setValueAtTime(freq, ac.currentTime);
-    if (freqEnd !== undefined) osc.frequency.exponentialRampToValueAtTime(freqEnd, ac.currentTime + duration);
-    gain.gain.setValueAtTime(vol, ac.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + duration);
-    osc.start(ac.currentTime);
-    osc.stop(ac.currentTime + duration);
+    osc.frequency.setValueAtTime(freq, actx.currentTime);
+    if (freqEnd !== undefined) osc.frequency.exponentialRampToValueAtTime(freqEnd, actx.currentTime + duration);
+    gain.gain.setValueAtTime(vol, actx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + duration);
+    osc.start(actx.currentTime);
+    osc.stop(actx.currentTime + duration);
   } catch(e) {}
 }
 
 function playNoise(duration, vol) {
+  if (!actx || !audioReady) return;
   try {
-    const ac = getACtx();
-    const bufSize = ac.sampleRate * duration;
-    const buf = ac.createBuffer(1, bufSize, ac.sampleRate);
+    const bufSize = actx.sampleRate * duration;
+    const buf = actx.createBuffer(1, bufSize, actx.sampleRate);
     const data = buf.getChannelData(0);
     for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1);
-    const src = ac.createBufferSource();
-    const gain = ac.createGain();
+    const src = actx.createBufferSource();
+    const gain = actx.createGain();
     src.buffer = buf;
-    src.connect(gain); gain.connect(ac.destination);
-    gain.gain.setValueAtTime(vol, ac.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + duration);
+    src.connect(gain); gain.connect(actx.destination);
+    gain.gain.setValueAtTime(vol, actx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + duration);
     src.start();
   } catch(e) {}
 }
@@ -161,8 +162,8 @@ let nextObstacle=90,nextCandle=70,noiseState=0;
 const frog={x:90,y:GROUND,vy:0,w:34,h:34,jumpCount:0,dead:false};
 function noise(x){return Math.sin(x*7.3+noiseState)*0.5+Math.sin(x*3.1+noiseState*0.7)*0.5;}
 function initChart(){chartPoints=[];for(let x=0;x<=W+20;x+=5)chartPoints.push(noise(x*0.01)*28+GROUND-8);}
-function startGame(){document.getElementById('overlay').style.display='none';state='playing';score=0;frame=0;speed=4;combo=0;Object.assign(frog,{y:GROUND,vy:0,dead:false,jumpCount:0});obstacles=[];candles=[];particles=[];messages=[];nextObstacle=100;nextCandle=80;noiseState=Math.random()*1000;initChart();SFX.start();requestAnimationFrame(loop);}
-function jump(){if(state!=='playing')return;if(frog.jumpCount<2){frog.vy=JUMP;frog.jumpCount===0?SFX.jump():SFX.jump2();frog.jumpCount++;spawnParticles(frog.x+frog.w/2,frog.y+frog.h,'#ff0033',6);}}
+function startGame(){if(!audioReady)initAudioSync();document.getElementById('overlay').style.display='none';state='playing';score=0;frame=0;speed=4;combo=0;Object.assign(frog,{y:GROUND,vy:0,dead:false,jumpCount:0});obstacles=[];candles=[];particles=[];messages=[];nextObstacle=100;nextCandle=80;noiseState=Math.random()*1000;initChart();SFX.start();requestAnimationFrame(loop);}
+function jump(){if(!audioReady)initAudioSync();if(state!=='playing')return;if(frog.jumpCount<2){frog.vy=JUMP;frog.jumpCount===0?SFX.jump():SFX.jump2();frog.jumpCount++;spawnParticles(frog.x+frog.w/2,frog.y+frog.h,'#ff0033',6);}}
 document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();jump();}});
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();jump();});
 function spawnParticles(x,y,color,n){for(let i=0;i<n;i++)particles.push({x,y,vx:(Math.random()-.5)*4,vy:Math.random()*-3-1,life:1,color,size:Math.random()*4+2});}
