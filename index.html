@@ -447,6 +447,42 @@ async function sbFetch(path, method='GET', body=null, extraHeaders={}) {
   return fetch(`${SUPABASE_URL}${path}`, opts);
 }
 
+// ─── DAILY SCORES TABLE SQL (run in Supabase SQL editor):
+// create table if not exists public.daily_scores (
+//   id bigserial primary key, username text not null, score integer not null default 0,
+//   date text not null, created_at timestamptz not null default now(), unique(username, date)
+// );
+// alter table public.daily_scores enable row level security;
+// create policy "Public read" on public.daily_scores for select using (true);
+// create policy "Public insert" on public.daily_scores for insert with check (true);
+// create policy "Public update" on public.daily_scores for update using (true);
+
+async function submitDailyScore(s) {
+  try {
+    const today = getDailyDateStr();
+    const checkRes = await sbFetch(`/rest/v1/daily_scores?username=eq.${encodeURIComponent(playerName)}&date=eq.${today}&select=score`);
+    if (checkRes.ok) {
+      const existing = await checkRes.json();
+      if (existing && existing.length > 0) {
+        if (s > existing[0].score) {
+          await sbFetch(`/rest/v1/daily_scores?username=eq.${encodeURIComponent(playerName)}&date=eq.${today}`, 'PATCH', { score: s });
+        }
+        return true;
+      }
+    }
+    const res = await sbFetch('/rest/v1/daily_scores', 'POST', { username: playerName, score: s, date: today }, { 'Prefer': 'return=minimal' });
+    return res.ok;
+  } catch(e) { return false; }
+}
+
+async function getDailyChallengeLB() {
+  try {
+    const today = getDailyDateStr();
+    const res = await sbFetch(`/rest/v1/daily_scores?date=eq.${today}&order=score.desc&limit=10&select=username,score`);
+    return res.ok ? await res.json() : [];
+  } catch(e) { return []; }
+}
+
 async function submitScore(s) {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/scores`, { method:'POST', headers:{'Content-Type':'application/json',...SB_HEADERS,'Prefer':'return=minimal'}, body:JSON.stringify({username:playerName,score:s}) });
@@ -529,18 +565,8 @@ async function showClanModal() {
     const rank = allClans.findIndex(c => c.id === myClanId) + 1;
     const myClan = allClans.find(c => c.id === myClanId);
     if (myClan) myClanName = myClan.name;
-    modal.innerHTML = `
-      <div style="font-family:'VT323',monospace;font-size:1.8rem;color:#00ccff;text-shadow:0 0 20px #00ccff">CLAN WARS</div>
-      <div style="font-family:'VT323',monospace;font-size:1.3rem;color:#fff">[${myClan?.tag||'???'}] ${myClanName||'?'}</div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:#ff003388;display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;width:80%;max-width:280px;margin:4px 0">
-        <div><div style="color:#ff003355;font-size:0.65rem;letter-spacing:2px">RANK</div><div style="color:#ffaa00;font-family:'VT323',monospace;font-size:1.2rem">#${rank||'?'}</div></div>
-        <div><div style="color:#ff003355;font-size:0.65rem;letter-spacing:2px">TOTAL SCORE</div><div style="color:#ff0033;font-family:'VT323',monospace;font-size:1.2rem">${myClan?.total_score||0}</div></div>
-        <div><div style="color:#ff003355;font-size:0.65rem;letter-spacing:2px">MEMBERS</div><div style="color:#ff0033;font-family:'VT323',monospace;font-size:1.2rem">${myClan?.member_count||0}</div></div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:4px">
-        <button class="btn" style="font-size:1.1rem;padding:4px 14px;border-color:#ff003366;color:#ff003388" onclick="leaveClan()">[ LEAVE ]</button>
-        <button class="btn btn-clan" onclick="closeClanModal()">[ CLOSE ]</button>
-      </div>`;
+    showClanMemberView(modal, myClan, rank, allClans, 'myclan');
+  
   } else {
     const topClans = await getTopClans(5);
     const topHtml = topClans.map((c,i) => `<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:0.7rem;border-bottom:1px solid #ff000a;color:${i===0?'#ffaa00':i===1?'#aaa':i===2?'#cc6622':'#ff003388'}"><span>#${i+1} [${c.tag}] ${c.name}</span><span>${c.total_score||0} pts · ${c.member_count||0}👥</span></div>`).join('');
@@ -563,9 +589,75 @@ async function showClanModal() {
   }
 }
 
+function getWeekRange() {
+  const now = new Date();
+  const day = now.getUTCDay(); // 0=Sun, 1=Mon
+  const diffToMon = (day === 0 ? -6 : 1 - day);
+  const mon = new Date(now); mon.setUTCDate(now.getUTCDate() + diffToMon); mon.setUTCHours(0,0,0,0);
+  const sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
+  const fmt = d => `${d.getUTCDate()}/${d.getUTCMonth()+1}`;
+  return `${fmt(mon)} — ${fmt(sun)}`;
+}
+
+function showClanMemberView(modal, myClan, rank, allClans, tab) {
+  const tabBtn = (id, label, active) => `<button onclick="showClanTab('${id}')" style="background:${active?'#00ccff22':'transparent'};border:1px solid ${active?'#00ccff':'#00ccff44'};color:${active?'#00eeff':'#00ccff66'};font-family:'VT323',monospace;font-size:0.95rem;padding:3px 10px;cursor:pointer;letter-spacing:1px;">${label}</button>`;
+  const tabs = `<div style="display:flex;gap:6px;margin:6px 0">${tabBtn('myclan','MY CLAN',tab==='myclan')}${tabBtn('lb','LEADERBOARD',tab==='lb')}${tabBtn('war','⚔️ WAR',tab==='war')}</div>`;
+
+  let content = '';
+  if (tab === 'myclan') {
+    content = `
+      <div style="font-family:'VT323',monospace;font-size:1.3rem;color:#fff">[${myClan?.tag||'???'}] ${myClan?.name||'?'}</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:#ff003388;display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;width:80%;max-width:280px;margin:4px 0">
+        <div><div style="color:#ff003355;font-size:0.65rem;letter-spacing:2px">RANK</div><div style="color:#ffaa00;font-family:'VT323',monospace;font-size:1.2rem">#${rank||'?'}</div></div>
+        <div><div style="color:#ff003355;font-size:0.65rem;letter-spacing:2px">TOTAL SCORE</div><div style="color:#ff0033;font-family:'VT323',monospace;font-size:1.2rem">${myClan?.total_score||0}</div></div>
+        <div><div style="color:#ff003355;font-size:0.65rem;letter-spacing:2px">MEMBERS</div><div style="color:#ff0033;font-family:'VT323',monospace;font-size:1.2rem">${myClan?.member_count||0}</div></div>
+      </div>
+      <button class="btn" style="font-size:1.1rem;padding:4px 14px;border-color:#ff003366;color:#ff003388" onclick="leaveClan()">[ LEAVE CLAN ]</button>`;
+  } else if (tab === 'lb') {
+    const lbRows = allClans.slice(0,10).map((c,i) => {
+      const isMine = c.id === myClanId;
+      const color = i===0?'#ffaa00':i===1?'#aaa':i===2?'#cc6622':'#ff003388';
+      return `<div style="display:flex;justify-content:space-between;padding:4px 10px;font-size:0.72rem;border-bottom:1px solid #ff000a;color:${color};${isMine?'background:#00ccff11;':''}">`+
+        `<span>${['🥇','🥈','🥉'][i]||`#${i+1}`} [${c.tag}] ${c.name}${isMine?' ◀':''}</span><span>${c.total_score||0} pts · ${c.member_count||0}👥</span></div>`;
+    }).join('');
+    content = `<div style="width:94%;max-width:340px;border:1px solid #00ccff33;background:#0a0000;margin:4px 0;max-height:240px;overflow-y:auto">${lbRows||'<div style="padding:8px;font-size:0.7rem;color:#ff003344;text-align:center;font-family:Share Tech Mono,monospace">NO CLANS YET</div>'}</div>`;
+  } else if (tab === 'war') {
+    const weekRange = getWeekRange();
+    const warRows = allClans.slice(0,10).map((c,i) => {
+      const isMine = c.id === myClanId;
+      const color = i===0?'#ffaa00':i===1?'#aaa':i===2?'#cc6622':'#ff003388';
+      const crown = i===0 ? '👑 ' : '';
+      return `<div style="display:flex;justify-content:space-between;padding:4px 10px;font-size:0.72rem;border-bottom:1px solid #ff000a;color:${color};${isMine?'background:#00ccff11;':''}">`+
+        `<span>${crown}#${i+1} [${c.tag}] ${c.name}${isMine?' ◀':''}</span><span>${c.total_score||0} pts</span></div>`;
+    }).join('');
+    content = `
+      <div style="font-family:'VT323',monospace;font-size:0.9rem;color:#00ccff88;letter-spacing:2px">WEEK: ${weekRange}</div>
+      <div style="width:94%;max-width:340px;border:1px solid #00ccff33;background:#0a0000;margin:4px 0;max-height:220px;overflow-y:auto">${warRows||'<div style="padding:8px;font-size:0.7rem;color:#ff003344;text-align:center;font-family:Share Tech Mono,monospace">NO CLANS YET</div>'}</div>
+      <div style="font-size:0.65rem;color:#ff003344;font-family:Share Tech Mono,monospace;letter-spacing:1px">SEASON RESETS MONDAY</div>`;
+  }
+
+  modal.innerHTML = `
+    <div style="font-family:'VT323',monospace;font-size:1.8rem;color:#00ccff;text-shadow:0 0 20px #00ccff">CLAN WARS</div>
+    ${tabs}
+    ${content}
+    <button class="btn btn-clan" style="margin-top:8px" onclick="closeClanModal()">[ CLOSE ]</button>`;
+
+  // store refs for tab switching
+  window._clanModalData = { myClan, rank, allClans };
+}
+
+async function showClanTab(tab) {
+  const modal = document.getElementById('clan-modal');
+  if (!modal) return;
+  const d = window._clanModalData;
+  if (!d) return;
+  showClanMemberView(modal, d.myClan, d.rank, d.allClans, tab);
+}
+
 function closeClanModal() {
   const modal = document.getElementById('clan-modal');
   if (modal) document.body.removeChild(modal);
+  window._clanModalData = null;
 }
 
 async function createClan() {
@@ -1095,6 +1187,9 @@ let chartPoints=[], chartOffset=0, bgOffset=0;
 let particles=[], messages=[], obstacles=[], candles=[], powerups=[], coins=[];
 let nextObstacle=90, nextCandle=70, nextPowerup=150, nextCoin=120, noiseState=0;
 let shakeFrames=0, turboFrames=0, shieldActive=false, magnetFrames=0;
+// ─── COMBO SYSTEM ─────────────────────────────────────────────────────────────
+let comboCount=0; // near-miss combo
+function getComboMult() { return Math.min(1.0 + comboCount * 0.1, 2.0); }
 const MILESTONES = [25, 50, 100, 200];
 let milestonesDone = new Set();
 let hardMode = parseInt(localStorage.getItem('ngmi_hardmode')||'0') === 1;
@@ -1181,6 +1276,7 @@ function startGame(daily) {
   frogScale = { x: 1, y: 1, squashFrames: 0, wasOnGround: true };
   runDoubleJumps = 0; runDodgeCount = 0; runRugDodges = 0; runSpeedMaxed = false;
   runNearMisses = 0; runFomoDodges = 0; runMagnetCoins = 0; runNoPowerups = true; runPrevCombo = 0; magnetFrames = 0;
+  comboCount = 0;
   Object.assign(frog, {y:GROUND,vy:0,dead:false,jumpCount:0});
   obstacles=[]; candles=[]; particles=[]; messages=[]; powerups=[]; coins=[];
   nextObstacle=100; nextCandle=80; nextPowerup=150; nextCoin=120;
@@ -1428,6 +1524,23 @@ function drawCombo() {
   ctx.shadowBlur=0;
 }
 
+function drawNearMissCombo() {
+  if(comboCount < 2) return;
+  const mult = getComboMult();
+  const pulse = 0.8 + Math.sin(Date.now()/120) * 0.2;
+  const col = comboCount >= 10 ? '#ff0033' : comboCount >= 5 ? '#ff6600' : '#ffcc00';
+  ctx.save();
+  ctx.globalAlpha = pulse;
+  ctx.fillStyle = col;
+  ctx.font = `${Math.min(14 + comboCount, 24)}px "VT323"`;
+  ctx.textAlign = 'right';
+  ctx.shadowColor = col; ctx.shadowBlur = 10;
+  ctx.fillText(`🔥 COMBO x${comboCount}  (${mult.toFixed(1)}x)`, W-8, 64);
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
 function drawMilestoneBar() {
   const nextMs = MILESTONES.find(m => score < m) || MILESTONES[MILESTONES.length-1];
   const prevMs = MILESTONES[MILESTONES.indexOf(nextMs)-1] || 0;
@@ -1507,6 +1620,7 @@ async function gameOver() {
     dailyChallengesCompleted++;
     localStorage.setItem('ngmi_daily_count', dailyChallengesCompleted);
     if (dailyChallengesCompleted >= 7) unlockAchievement('daily_grinder');
+    await submitDailyScore(finalDisplayScore);
     await submitScore(finalDisplayScore);
   } else {
     await submitScore(finalDisplayScore);
@@ -1534,7 +1648,10 @@ async function gameOver() {
   if(finalDisplayScore>=150) { localStorage.setItem('ngmi_hardmode','1'); hardMode=true; }
 
   setTimeout(async()=>{
-    const [rows, myRank] = await Promise.all([getLeaderboard(), getMyRank(finalDisplayScore)]);
+    const fetchArr = isDailyMode
+      ? [getDailyChallengeLB(), getMyRank(finalDisplayScore)]
+      : [getLeaderboard(), getMyRank(finalDisplayScore)];
+    const [rows, myRank] = await Promise.all(fetchArr);
     const lbHtml = rows.length
       ? rows.map((r,i)=>`<div class="lb-row ${r.username===playerName?'me':''}"><span class="rank">${['🥇','🥈','🥉'][i]||'#'+(i+1)}</span><span class="name">${r.username}</span><span class="pts">${r.score}</span></div>`).join('')
       : '<div class="lb-loading">BE THE FIRST</div>';
@@ -1542,13 +1659,16 @@ async function gameOver() {
     const hardTxt = hardMode ? `<div class="sub" style="color:#0055ff88">⚡ HARD MODE ACTIVE</div>` : (finalDisplayScore>=40?`<div class="sub" style="color:#ff660066">REACH 50 TO UNLOCK HARD MODE</div>`:'');
     const coinsTxt = sessionCoins > 0 ? `<div class="sub" style="color:#ffcc0077">🪙 ${sessionCoins} COINS THIS RUN</div>` : '';
     const streakTxt = streakCount >= 2 ? `<div class="sub" style="color:#ff660088">🔥 ${streakCount} DAY STREAK · x${getStreakMultiplier().toFixed(2)} MULTIPLIER</div>` : '';
+    const dailyBadge = isDailyMode ? `<div style="font-family:'VT323',monospace;font-size:1.1rem;color:#ffcc00;letter-spacing:2px;background:#ffcc0011;border:1px solid #ffcc0044;padding:2px 12px;margin-top:2px">📅 DAILY CHALLENGE</div>` : '';
     const dailyTxt = isDailyMode ? `<div class="sub" style="color:#ffcc0088">✅ DAILY CHALLENGE COMPLETE!</div>` : '';
+    const lbLabel = isDailyMode ? `TODAY'S DAILY TOP 10` : `TOP SCORES`;
     const ol = document.getElementById('overlay');
     ol.style.display='flex';
     ol.innerHTML=`
       <div class="screen-top" style="width:100%;text-align:center;padding-top:6px">
         <h1 style="font-size:2.8rem;animation:flicker 2.5s infinite">RUGGED</h1>
         <div class="verdict" style="font-size:1.6rem">${verdict}</div>
+        ${dailyBadge}
       ${finalDisplayScore > (best - finalDisplayScore) && finalDisplayScore >= best ? '<div style="font-family:\'VT323\',monospace;font-size:1.4rem;color:#ffcc00;text-shadow:0 0 20px #ffcc00;animation:flicker 1s infinite">🌟 NEW BEST!</div>' : ''}
       </div>
       <div class="screen-mid" style="width:100%;gap:6px">
@@ -1561,7 +1681,7 @@ async function gameOver() {
         ${dailyTxt}${hardTxt}
       </div>
       <div style="width:90%;flex:1;min-height:0;display:flex;flex-direction:column;gap:4px">
-        <div style="font-family:'VT323',monospace;font-size:0.9rem;color:#ff003366;letter-spacing:2px;text-align:center">TOP SCORES</div>
+        <div style="font-family:'VT323',monospace;font-size:0.9rem;color:${isDailyMode?'#ffcc0088':'#ff003366'};letter-spacing:2px;text-align:center">${lbLabel}</div>
         <div id="lb-wrap" style="flex:1;min-height:60px;max-height:120px">${lbHtml}</div>
       </div>
       <div class="screen-bot" style="width:100%;gap:8px;padding-top:8px">
@@ -1570,7 +1690,7 @@ async function gameOver() {
           <button class="btn btn-card" style="flex:1;font-size:1.2rem;padding:8px 0" onclick="showScoreCard(${finalDisplayScore},${myRank||0})">[ SHARE CARD ]</button>
         </div>
         <div style="display:flex;gap:8px;width:92%;justify-content:center">
-          <button class="btn btn-lb" style="flex:1;font-size:1.1rem;padding:6px 0" onclick="showLeaderboard('alltime')">[ LEADERBOARD ]</button>
+          <button class="btn btn-lb" style="flex:1;font-size:1.1rem;padding:6px 0" onclick="showLeaderboard(${isDailyMode?`'daily'`:`'alltime'`})">[ LEADERBOARD ]</button>
           <button class="btn btn-share" style="flex:1;font-size:1.1rem;padding:6px 0" onclick="shareScore(${finalDisplayScore})">[ SHARE ]</button>
         </div>
       </div>
@@ -1664,8 +1784,14 @@ function loop() {
         o._nearMissChecked = true;
         runNearMisses++;
         frame += 2; // +2 pts
+        // Combo system: near-miss increments comboCount
+        comboCount++;
+        if(comboCount >= 10) unlockAchievement('combo_king');
+        if(comboCount >= 15) unlockAchievement('combo_master');
         SFX.nearMiss(); haptic.light();
-        showMsg('NEAR MISS! +2',o.x+o.w/2,o.y-14,'#ff44cc');
+        const nearMissMsg = comboCount >= 2 ? `NEAR MISS! 🔥x${comboCount}` : 'NEAR MISS! +2';
+        showMsg(nearMissMsg, o.x+o.w/2, o.y-14, '#ff44cc');
+        if(comboCount >= 2) { setTimeout(()=>showMsg(`COMBO!`,frog.x+frog.w/2,frog.y-30,'#ff6600',false), 0); }
         spawnParticles(frog.x+frog.w,frog.y+frog.h/2,'#ff44cc',4);
         if(runNearMisses >= 10) unlockAchievement('near_miss_pro');
       }
@@ -1706,6 +1832,8 @@ function loop() {
       }
     }
     if(collision(frog,o)){
+      if(comboCount >= 2) { showMsg('COMBO BREAK!', frog.x+frog.w/2, frog.y-40, '#ff0033', true); }
+      comboCount = 0;
       if(shieldActive){
         shieldActive=false; combo=0; dodgeStreak=0;
         SFX.shieldHit(); haptic.heavy(); triggerShake();
@@ -1737,10 +1865,11 @@ function loop() {
     if(circleRect(coin.x,coin.y,coin.r,frog.x,frog.y,frog.w,frog.h)){
       coin.collected=true;
       SFX.coinTick(); haptic.light();
-      frame += 12; sessionCoins++;
+      const coinBonus = Math.round(12 * getComboMult());
+      frame += coinBonus; sessionCoins++;
       if(magnetFrames > 0) runMagnetCoins++;
       spawnParticles(coin.x,coin.y,'#ffcc00',5);
-      showMsg('+2',coin.x,coin.y-10,'#ffcc00');
+      showMsg(comboCount>=2?`+${Math.round(2*getComboMult())} 🔥`:'+2',coin.x,coin.y-10,'#ffcc00');
       // Achievement check
       const tc = totalCoins + sessionCoins;
       if (tc >= 50) unlockAchievement('coin_hoarder');
@@ -1860,6 +1989,7 @@ function loop() {
   }
 
   drawCombo();
+  drawNearMissCombo();
   ctx.restore();
 }
 
