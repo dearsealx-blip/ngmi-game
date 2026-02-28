@@ -690,6 +690,7 @@ function showClanMemberView(modal, myClan, rank, allClans, tab) {
         <div><div style="color:#ff003355;font-size:0.65rem;letter-spacing:2px">TOTAL SCORE</div><div style="color:#ff0033;font-family:'VT323',monospace;font-size:1.2rem">${myClan?.total_score||0}</div></div>
         <div><div style="color:#ff003355;font-size:0.65rem;letter-spacing:2px">MEMBERS</div><div style="color:#ff0033;font-family:'VT323',monospace;font-size:1.2rem">${myClan?.member_count||0}</div></div>
       </div>
+      ${(()=>{ const ct=10000; const cs=myClan?.total_score||0; return `<div style="border:1px solid #00ccff33;background:#00ccff08;padding:8px 12px;margin:4px 0;width:90%"><div style="font-family:'VT323',monospace;font-size:1rem;color:#00ccff;letter-spacing:2px">⚔️ WEEKLY CHALLENGE</div><div style="font-size:0.65rem;color:#888;margin:4px 0">CLAN GOAL: ${ct.toLocaleString()} PTS THIS WEEK</div><div style="background:#111;height:8px;width:100%;border:1px solid #00ccff33;margin:4px 0"><div style="background:#00ccff;height:100%;width:${Math.min(100,(cs/ct)*100).toFixed(1)}%"></div></div><div style="font-size:0.65rem;color:#00ccffaa">${cs>=ct?'✅ CHALLENGE COMPLETE!':`${(ct-cs).toLocaleString()} PTS TO GO`}</div></div>`; })()}
       <button class="btn" style="font-size:1.1rem;padding:4px 14px;border-color:#ff003366;color:#ff003388" onclick="leaveClan()">[ LEAVE CLAN ]</button>`;
   } else if (tab === 'lb') {
     const lbRows = allClans.slice(0,10).map((c,i) => {
@@ -1109,6 +1110,12 @@ function shareScore(s) {
   const url = `https://t.me/share/url?url=https://t.me/NGMI_TON_BOT&text=${encodeURIComponent(text)}`;
   window.open(url, '_blank');
 }
+function shareToGroup(s){
+  const text = encodeURIComponent('I scored ' + s + ' pts on $NGMI Chart Surfer! Can you beat me? 🐸');
+  const url = encodeURIComponent('https://t.me/NGMI_TON_BOT');
+  if(tg) tg.openTelegramLink('https://t.me/share/url?url='+url+'&text='+text);
+  else window.open('https://t.me/share/url?url='+url+'&text='+text,'_blank');
+}
 
 async function showScoreCard(s, rank) {
   const sc = document.createElement('canvas');
@@ -1282,6 +1289,10 @@ let shakeFrames=0, turboFrames=0, shieldActive=false, shieldCharges=2, magnetFra
 let ghostFrames=0, fomoMeter=0, fomoRushFrames=0, bullRunFrames=0, nextBullRun=200;
 let nearMissStreak=0;
 let patternWarned40=false, patternWarned80=false, patternWarned120=false, patternWarned160=false, patternWarned220=false;
+let elonWarned=false, elonSpawned=false, elonRainFrames=0;
+let czWarned=false, czSpawned=false, czSlowFrames=0;
+let scamBotWarned=false, scamBotSpawned=false, scamRainFrames=0;
+let ghostRival=null, ghostRivalY=150, ghostRivalVY=0, ghostRivalFrame=0, ghostRivalJumpCount=0, ghostRivalDead=false;
 let isReplayMode=false, replayInputs=[], replayFrame=0, isTournamentMode=false, tournamentScore=0;
 // ─── COMBO SYSTEM ─────────────────────────────────────────────────────────────
 let comboCount=0; // near-miss combo
@@ -1367,6 +1378,10 @@ function startGame(daily) {
   ghostFrames=0; fomoMeter=0; fomoRushFrames=0; bullRunFrames=0; nextBullRun=180+Math.floor(gameRand()*100);
   nearMissStreak=0;
   patternWarned40=false; patternWarned80=false; patternWarned120=false; patternWarned160=false; patternWarned220=false;
+  elonWarned=false; elonSpawned=false; elonRainFrames=0;
+  czWarned=false; czSpawned=false; czSlowFrames=0;
+  scamBotWarned=false; scamBotSpawned=false; scamRainFrames=0;
+  ghostRival=null; ghostRivalY=150; ghostRivalVY=0; ghostRivalFrame=0; ghostRivalJumpCount=0; ghostRivalDead=false;
   isReplayMode=false; replayInputs=[]; replayFrame=0; isTournamentMode=false; tournamentScore=0;
   milestonesDone = new Set();
   bossSpawned = false; bearBossSpawned = false; whaleBossSpawned = false;
@@ -1385,6 +1400,7 @@ function startGame(daily) {
   noiseState = isDailyMode ? gameRand()*1000 : Math.random()*1000;
   document.getElementById('canvas-wrap').classList.remove('turbo-active','shaking');
   initChart();
+  if(isDailyMode){ ghostRival = loadGhostReplay(); }
   SFX.start();
   startMusic();
   requestAnimationFrame(loop);
@@ -1452,12 +1468,20 @@ function spawnCoinCluster() {
 
 // ─── SPAWNERS ────────────────────────────────────────────────────────────────
 function spawnObstacle() {
-  const types = hardMode ? ['rug','honeypot','dev','sec','sec','fomo'] : ['rug','honeypot','dev'];
+  let baseTypes = ['rug','honeypot','dev'];
+  if(score>=20) baseTypes.push('thread');
+  if(score>=30) baseTypes.push('liquidation');
+  if(score>=50) baseTypes.push('paperhands');
+  const hardTypes = [...baseTypes,'sec','sec','fomo'];
+  const types = hardMode ? hardTypes : baseTypes;
   const type = types[Math.floor(gameRand()*types.length)];
   const h = 28+gameRand()*32;
   const bobs = gameRand() < 0.3;
   const baseY = GROUND+frog.h-h;
   obstacles.push({x:W+20,y:baseY,baseY,w:22,h,type,passed:false,bobs,bobPhase:gameRand()*Math.PI*2});
+  if(type==='thread') showMsg('🐦 TWITTER THREAD!', W/2, H/2-40, '#1da1f2', false);
+  if(type==='liquidation') showMsg('🌊 LIQUIDATION WAVE!', W/2, H/2-40, '#00ccff', false);
+  if(type==='paperhands') showMsg('📄 PAPER HANDS...', W/2, H/2-40, '#aaaaaa', false);
   const base = hardMode ? 80 : 120;
   nextObstacle = base + gameRand()*80;
 }
@@ -1488,6 +1512,12 @@ function spawnWhaleBoss() {
 function spawnCandle() {
   candles.push({x:W+20,y:GROUND-38-gameRand()*55,w:18,h:28,collected:false});
   nextCandle = 80+gameRand()*80;
+}
+function spawnCandleCluster(){
+  if(score<60) return;
+  showMsg('🕯️ CANDLE PATTERN!', W/2, H/2-50, '#ff4444', false);
+  for(let i=0;i<3;i++) obstacles.push({x:W+20+i*40,y:GROUND+frog.h-35,baseY:GROUND+frog.h-35,w:18,h:35,type:'rug',passed:false,bobs:false,bobPhase:0});
+  nextObstacle=200;
 }
 function spawnPowerup() {
   const r = gameRand(); const type = r < 0.3 ? 'turbo' : r < 0.55 ? 'shield' : r < 0.75 ? 'magnet' : 'ghost';
@@ -1526,8 +1556,8 @@ function drawFrog(dead) {
 }
 
 function drawObstacle(o) {
-  const cols={rug:'#cc2200',honeypot:'#ffaa00',dev:'#9900cc',sec:'#0055ff',boss:'#ff0000',bear:'#003399',whale:'#7700cc',fomo:'#ff44cc'};
-  const lbls={rug:'RUG',honeypot:'HONEY',dev:'DEV',sec:'SEC',boss:'DUMP',bear:'BEAR',whale:'WHALE',fomo:'FOMO'};
+  const cols={rug:'#cc2200',honeypot:'#ffaa00',dev:'#9900cc',sec:'#0055ff',boss:'#ff0000',bear:'#003399',whale:'#7700cc',fomo:'#ff44cc',tweet:'#1da1f2',thread:'#1da1f2',liquidation:'#00ccff',paperhands:'#cc2200'};
+  const lbls={rug:'RUG',honeypot:'HONEY',dev:'DEV',sec:'SEC',boss:'DUMP',bear:'BEAR',whale:'WHALE',fomo:'FOMO',tweet:'TWEET',thread:'THREAD',liquidation:'LIQ',paperhands:'PAPER'};
   const c=cols[o.type]||'#cc2200';
   ctx.fillStyle=c+'22'; ctx.fillRect(o.x,o.y,o.w,o.h);
   ctx.strokeStyle=c; ctx.lineWidth=o.isBoss?3:2; ctx.strokeRect(o.x,o.y,o.w,o.h);
@@ -1542,6 +1572,10 @@ function drawObstacle(o) {
   ctx.restore();
   ctx.fillStyle=c; ctx.font=`bold ${o.isBoss?11:8}px "Share Tech Mono"`; ctx.textAlign='center';
   ctx.fillText(lbls[o.type]||'RUG',o.x+o.w/2,o.y-4);
+  // Special types
+  if(o.type==='tweet'){ ctx.font='14px serif'; ctx.textAlign='center'; ctx.fillText('🐦', o.x+o.w/2, o.y+o.h/2+5); }
+  if(o.type==='thread'){ ctx.fillStyle='#1da1f2'; ctx.fillRect(o.x,o.y+o.h-16,o.w,16); ctx.font='12px serif'; ctx.textAlign='center'; ctx.fillText('🐦', o.x+o.w/2, o.y+o.h-20); }
+  if(o.type==='liquidation'){ ctx.fillStyle='#00ccff44'; ctx.fillRect(o.x,o.y,o.w,o.h); ctx.strokeStyle='#00ccff'; ctx.lineWidth=2; ctx.strokeRect(o.x,o.y,o.w,o.h); }
 }
 
 function drawCandle(c) {
@@ -1555,8 +1589,8 @@ function drawCandle(c) {
 function drawCoin(coin) {
   const t = Date.now() / 300;
   ctx.save();
-  ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 8;
-  ctx.fillStyle = '#ffcc00';
+  if(coin.fake){ ctx.shadowColor='#ff2222'; ctx.shadowBlur=8; ctx.fillStyle='#ff2222'; }
+  else { ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 8; ctx.fillStyle = '#ffcc00'; }
   ctx.beginPath();
   ctx.ellipse(coin.x, coin.y, coin.r, coin.r * (0.7 + Math.abs(Math.sin(t)) * 0.3), 0, 0, Math.PI*2);
   ctx.fill();
@@ -1881,6 +1915,7 @@ async function gameOver() {
           <button class="btn btn-lb" style="flex:1;font-size:1.1rem;padding:6px 0" onclick="showLeaderboard(${isDailyMode?`'daily'`:`'alltime'`})">[ LEADERBOARD ]</button>
           <button class="btn btn-share" style="flex:1;font-size:1.1rem;padding:6px 0" onclick="shareScore(${finalDisplayScore})">[ SHARE ]</button>
         </div>
+        ${finalDisplayScore>=50 ? `<div style="display:flex;gap:8px;width:92%;justify-content:center;margin-top:4px"><button class="btn btn-share" style="width:100%;font-size:1.1rem;padding:6px 0" onclick="shareToGroup(${finalDisplayScore})">[ 📣 SHARE TO GROUP ]</button></div>` : ''}
         <div style="display:flex;gap:8px;width:92%;justify-content:center">
           ${isDailyMode?`<button class="btn btn-daily" style="flex:1;font-size:1.1rem;padding:6px 0" onclick="showWatchMyRun()">[ WATCH MY RUN ]</button>`:''}
           <button class="btn" style="flex:1;font-size:1.1rem;padding:6px 0;border-color:#ffcc0066;color:#ffcc0088" onclick="showTournament()">[ TOURNAMENT ]</button>
@@ -1903,6 +1938,7 @@ function loop() {
   score = Math.round(rawScore * getStreakMultiplier());
   const baseSpeed = hardMode ? 3.5 : 2.5;
   speed = baseSpeed + rawScore*0.008 + (turboFrames>0?2:0);
+  if(czSlowFrames>0) speed = Math.min(speed, 1.5);
   document.getElementById('score').textContent = score;
 
   if (!newBestShown && score > best && best > 0) {
@@ -1920,6 +1956,37 @@ function loop() {
   if (!bearBossSpawned && score >= 150) spawnBearBoss();
   if (!whaleBossWarned && score >= 298) { whaleBossWarned = true; showMsg('⚠ !!! INCOMING WHALE !!!', W/2, H/2-40, '#9900cc', true); SFX.boss(); haptic.warn(); }
   if (!whaleBossSpawned && score >= 300) spawnWhaleBoss();
+
+  // Elon Boss (score 200)
+  if(!elonWarned && score>=198){ elonWarned=true; showMsg('⚠ ELON JUST TWEETED...', W/2, H/2-40, '#1da1f2', true); SFX.boss(); haptic.warn(); }
+  if(!elonSpawned && score>=200){ elonSpawned=true; elonRainFrames=240; }
+  if(elonRainFrames>0){
+    elonRainFrames--;
+    if(elonRainFrames%30===0){
+      const tx = W*0.2 + gameRand()*(W*0.6);
+      obstacles.push({x:tx, y:-20, baseY:-20, w:22, h:22, type:'tweet', passed:false, bobs:false, bobPhase:0, falling:true, vy:3});
+    }
+    if(elonRainFrames===0){ frame+=150; showMsg('+25 SURVIVED ELON!', W/2, H/2-40, '#1da1f2', true); haptic.success(); }
+  }
+
+  // CZ Boss (score 250)
+  if(!czWarned && score>=248){ czWarned=true; showMsg('⚠ CZ IS SELLING...', W/2, H/2-40, '#f0b90b', true); SFX.boss(); haptic.warn(); }
+  if(!czSpawned && score>=250){ czSpawned=true; czSlowFrames=300; showMsg('📉 CZ DUMP INCOMING', W/2, H/2-60, '#f0b90b', true); }
+  if(czSlowFrames>0){ czSlowFrames--; if(czSlowFrames===0){ frame+=120; showMsg('CZ LEFT THE CHAT ✓ +20', W/2, H/2-40, '#00ff66', true); haptic.success(); } }
+
+  // ScamBot (score 350)
+  if(!scamBotWarned && score>=348){ scamBotWarned=true; showMsg('⚠ SCAM BOT DETECTED', W/2, H/2-40, '#cc00ff', true); SFX.boss(); haptic.warn(); }
+  if(!scamBotSpawned && score>=350){ scamBotSpawned=true; scamRainFrames=480; showMsg('🤖 FAKE COINS INCOMING!', W/2, H/2-60, '#cc00ff', true); }
+  if(scamRainFrames>0){
+    scamRainFrames--;
+    if(scamRainFrames%60===0){
+      coins.push({x:W+20+gameRand()*100, y:GROUND-40-gameRand()*60, r:7, collected:false, fake:true});
+    }
+    if(scamRainFrames===0){ showMsg('SCAM BOT GONE! ✓', W/2, H/2-40, '#00ff66', true); haptic.success(); }
+  }
+
+  // Candle cluster trigger
+  if(score>=60 && Math.floor(rawScore)%90===0 && rawScore>0) spawnCandleCluster();
 
   // Feature 8: Chart pattern warnings
   if (!patternWarned40 && score >= 40) { patternWarned40=true; showMsg('📊 HEAD & SHOULDERS', W/2, H/2-50, '#ffaa00', true); }
@@ -1978,6 +2045,17 @@ function loop() {
     else if (frog.vy > 0) { frogScale.x = 1; frogScale.y = 1; }
   }
 
+  // Ghost rival physics
+  if(ghostRival && !ghostRivalDead){
+    ghostRivalFrame++;
+    const gjumps = ghostRival.filter(r=>r.frame===ghostRivalFrame);
+    for(const gj of gjumps){ if(ghostRivalJumpCount<2){ ghostRivalVY=-10; ghostRivalJumpCount++; } }
+    ghostRivalVY += 0.5;
+    ghostRivalY += ghostRivalVY;
+    if(ghostRivalY >= GROUND){ ghostRivalY=GROUND; ghostRivalVY=0; ghostRivalJumpCount=0; }
+    if(ghostRivalFrame > (ghostRival.length>0 ? ghostRival[ghostRival.length-1].frame+120 : 999)) ghostRivalDead=true;
+  }
+
   // Boss bob
   for (const o of obstacles) {
     if (o.bobs) o.y = o.baseY + Math.sin(frame * (o.bobSpeed||0.08) + o.bobPhase) * (o.bobAmp||18);
@@ -1988,7 +2066,10 @@ function loop() {
   obstacles = obstacles.filter(o=>o.x>-100);
   for(const o of obstacles){
     const oSpeed = o.type === 'fomo' ? speed * 1.5 : speed;
-    o.x -= oSpeed;
+    if(o.falling){ o.y += (o.vy||3); o.x -= speed*0.2; if(o.y>H+50){ o.passed=true; } }
+    else { o.x -= oSpeed; }
+    if(o.type==='paperhands' && !o.origW){ o.origW=o.w; o.origH=o.h; }
+    if(o.type==='paperhands'){ const prog = Math.max(0,(o.x - frog.x)/W); o.w=Math.max(12, (o.origW||22)*prog); o.h=Math.max(10,(o.origH||40)*prog); }
     drawObstacle(o);
     // Near miss detection (passed within 20px horizontally while close vertically)
     if(!o.passed && !o._nearMissChecked && o.x+o.w < frog.x+frog.w && o.x+o.w > frog.x-20){
@@ -2102,6 +2183,7 @@ function loop() {
   for(const coin of coins){
     coin.x -= speed; drawCoin(coin);
     if(circleRect(coin.x,coin.y,coin.r,frog.x,frog.y,frog.w,frog.h)){
+      if(coin.fake){ coin.collected=true; frame=Math.max(0,frame-60); spawnParticles(coin.x,coin.y,'#ff2222',8); showMsg('🤖 SCAMMED! -10', coin.x, coin.y-10, '#ff2222', true); haptic.error(); continue; }
       coin.collected=true;
       SFX.coinTick(); haptic.light();
       const coinBonus = Math.round(12 * getComboMult());
@@ -2188,6 +2270,18 @@ function loop() {
   ctx.globalAlpha=1;
 
   drawFrog(false);
+  if(ghostRival && !ghostRivalDead){
+    ctx.save();
+    ctx.globalAlpha=0.35;
+    ctx.fillStyle='#aaaaff';
+    ctx.fillRect(frog.x-30, ghostRivalY, frog.w, frog.h);
+    ctx.globalAlpha=1;
+    ctx.fillStyle='#aaaaff66';
+    ctx.font='9px "VT323"';
+    ctx.textAlign='center';
+    ctx.fillText('👤RIVAL', frog.x-30+frog.w/2, ghostRivalY-5);
+    ctx.restore();
+  }
   drawMilestoneBar();
 
   // HUD
@@ -2203,6 +2297,10 @@ function loop() {
   if(bullRunFrames>0){ ctx.fillStyle='#00ff64'; ctx.font='14px "VT323"'; ctx.textAlign='center'; ctx.shadowColor='#00ff64'; ctx.shadowBlur=8; ctx.fillText('🟢 BULL RUN x2', W/2, 32); ctx.shadowBlur=0; }
   // FOMO rush HUD
   if(fomoRushFrames>0){ ctx.fillStyle='#ff6600'; ctx.font='14px "VT323"'; ctx.textAlign='center'; ctx.shadowColor='#ff6600'; ctx.shadowBlur=8; ctx.fillText(`🚀 FOMO RUSH ${Math.ceil(fomoRushFrames/60)}s`, W/2, 50); ctx.shadowBlur=0; }
+  // CZ Dump HUD
+  if(czSlowFrames>0){ ctx.fillStyle='#f0b90b'; ctx.font='13px "VT323"'; ctx.textAlign='center'; ctx.fillText('📉 CZ DUMP ' + Math.ceil(czSlowFrames/60) + 's', W/2, 18); }
+  // Ghost rival HUD
+  if(ghostRival && !ghostRivalDead){ ctx.fillStyle='#aaaaff'; ctx.font='12px "VT323"'; ctx.textAlign='right'; ctx.fillText('👤 RIVAL GHOST', W-8, 32); }
   // FOMO meter bar (bottom left, above ground)
   { const barW=70, barH=7, barX=8, barY=GROUND+frog.h-16;
     ctx.fillStyle='#333'; ctx.fillRect(barX,barY,barW,barH);
@@ -2261,7 +2359,16 @@ function saveReplayIfBest(finalScore, inputs) {
   if (finalScore > storedScore) {
     localStorage.setItem(storedKey, finalScore);
     localStorage.setItem(getDailyReplayKey(), JSON.stringify(inputs));
+    // Save as ghost for tomorrow
+    localStorage.setItem('ngmi_daily_ghost_'+today, JSON.stringify(inputs));
   }
+}
+function loadGhostReplay(){
+  try {
+    const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
+    const stored = localStorage.getItem('ngmi_daily_ghost_'+yesterday);
+    return stored ? JSON.parse(stored) : null;
+  } catch(e){ return null; }
 }
 function showWatchMyRun() {
   const replayData = localStorage.getItem(getDailyReplayKey());
