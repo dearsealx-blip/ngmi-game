@@ -108,6 +108,24 @@ async function main() {
     console.log('No winner today');
   }
 
+  // ── Clean up old daily_scores (keep last 30 days) ──
+  try {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+    const delUrl = `${SUPABASE_URL}/rest/v1/daily_scores?date=lt.${cutoffStr}`;
+    await new Promise((resolve, reject) => {
+      const req = https.request(delUrl, {
+        method: 'DELETE',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      }, res => { res.resume(); res.on('end', resolve); });
+      req.on('error', reject); req.end();
+    });
+    console.log(`Cleaned up daily_scores older than ${cutoffStr}`);
+  } catch(e) {
+    console.log('Cleanup error (non-fatal):', e.message);
+  }
+
   console.log('Done.');
   process.exit(0);
 }
