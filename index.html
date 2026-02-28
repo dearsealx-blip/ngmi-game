@@ -128,6 +128,7 @@ canvas { display: block; width: 100%; background: #050000; }
       <div class="screen-mid">
         <button class="btn" style="font-size:2.2rem;padding:10px 0;width:82%;max-width:300px;letter-spacing:6px" onclick="startGame(false)">[ PLAY ]</button>
         <button class="btn btn-daily" style="width:65%;max-width:240px;font-size:1.3rem;padding:6px 0" onclick="startGame(true)">[ DAILY CHALLENGE ]</button>
+        <div style="display:flex;align-items:center;gap:6px;background:#ffcc0008;border:1px solid #ffcc0033;padding:4px 14px;font-family:'VT323',monospace;font-size:0.95rem;color:#ffcc00aa;letter-spacing:2px;cursor:pointer" onclick="showPrizes()">🏆 <span style="color:#ffcc00">5 TON</span> DAILY PRIZE</div>
         <div id="streak-display"></div>
       </div>
       <div class="screen-bot">
@@ -473,6 +474,82 @@ async function submitDailyScore(s) {
     const res = await sbFetch('/rest/v1/daily_scores', 'POST', { username: playerName, score: s, date: today }, { 'Prefer': 'return=minimal' });
     return res.ok;
   } catch(e) { return false; }
+}
+
+async function submitPrizeClaim(wallet) {
+  try {
+    const today = getDailyDateStr();
+    // Upsert: one claim per player per day
+    const res = await sbFetch('/rest/v1/prize_claims', 'POST',
+      { username: playerName, wallet, date: today, prize: '5 TON', claimed_at: new Date().toISOString() },
+      { 'Prefer': 'return=minimal,resolution=merge-duplicates' }
+    );
+    return res.ok;
+  } catch(e) { return false; }
+}
+
+async function checkIfDailyWinner(myScore) {
+  try {
+    const today = getDailyDateStr();
+    const res = await sbFetch(`/rest/v1/daily_scores?date=eq.${today}&order=score.desc&limit=1&select=username,score`);
+    if (!res.ok) return false;
+    const rows = await res.json();
+    return rows.length > 0 && rows[0].username === playerName && rows[0].score === myScore;
+  } catch(e) { return false; }
+}
+
+function showPrizeClaimModal(score) {
+  const ol = document.getElementById('overlay');
+  ol.innerHTML = `
+    <div class="screen" style="width:100%">
+      <div class="screen-top" style="padding:20px 16px 8px;text-align:center">
+        <div style="font-size:3rem;margin-bottom:4px">🏆</div>
+        <div style="font-family:'VT323',monospace;font-size:2.2rem;color:#ffcc00;text-shadow:0 0 30px #ffcc0088;letter-spacing:4px">YOU WON!</div>
+        <div style="font-family:'VT323',monospace;font-size:1.6rem;color:#00ff66;letter-spacing:2px">TODAY'S #1 — ${score} PTS</div>
+        <div style="font-size:0.7rem;color:#888;letter-spacing:2px;margin-top:4px">ENTER YOUR TON WALLET TO CLAIM YOUR PRIZE</div>
+      </div>
+      <div class="screen-mid" style="padding:16px;gap:12px">
+        <div style="background:#ffcc0011;border:1px solid #ffcc0044;padding:12px 20px;text-align:center;width:90%">
+          <div style="font-family:'VT323',monospace;font-size:2.8rem;color:#ffcc00;text-shadow:0 0 20px #ffcc00">5 TON</div>
+          <div style="font-size:0.65rem;color:#ffcc0088;letter-spacing:2px">DAILY PRIZE POOL</div>
+        </div>
+        <input id="wallet-input" type="text" placeholder="UQ... or EQ... wallet address"
+          style="width:90%;background:#111;border:1px solid #ffcc0055;color:#fff;font-family:'Share Tech Mono',monospace;font-size:0.8rem;padding:10px 12px;outline:none;letter-spacing:1px"
+          oninput="document.getElementById('claim-btn').style.opacity=this.value.length>10?'1':'0.4'"
+        />
+        <button id="claim-btn" class="btn" style="width:90%;font-size:1.4rem;padding:10px 0;opacity:0.4;border-color:#ffcc00;color:#ffcc00;box-shadow:0 0 20px #ffcc0033"
+          onclick="handleClaim()">[ CLAIM 5 TON ]</button>
+        <div style="font-size:0.6rem;color:#555;letter-spacing:1px;text-align:center;width:90%;line-height:1.7">
+          Prize sent within 24h · Must be a valid TON address<br>
+          <span style="color:#ff003355">Only claim once — one wallet per day</span>
+        </div>
+      </div>
+      <div class="screen-footer">
+        <button class="btn btn-lb" style="font-size:1rem;padding:6px 24px" onclick="showStart()">[ SKIP ]</button>
+      </div>
+    </div>
+  `;
+}
+
+async function handleClaim() {
+  const wallet = document.getElementById('wallet-input').value.trim();
+  if (!wallet || wallet.length < 10) return;
+  const btn = document.getElementById('claim-btn');
+  btn.textContent = '[ SENDING... ]';
+  btn.style.opacity = '0.5';
+  btn.disabled = true;
+  const ok = await submitPrizeClaim(wallet);
+  if (ok) {
+    btn.textContent = '[ CLAIMED! ✓ ]';
+    btn.style.borderColor = '#00ff66';
+    btn.style.color = '#00ff66';
+    setTimeout(() => showStart(), 2000);
+  } else {
+    btn.textContent = '[ ERROR — TRY AGAIN ]';
+    btn.style.borderColor = '#ff0033';
+    btn.style.color = '#ff0033';
+    btn.disabled = false;
+  }
 }
 
 async function getDailyChallengeLB() {
@@ -1629,12 +1706,13 @@ function showPrizes() {
             <div style="font-family:'VT323',monospace;font-size:1.1rem;color:${t.color};opacity:0.7">${t.min === 0 ? '0+' : t.min + '+'} PTS</div>
           </div>
         `).join('')}
-        <div style="border:1px solid #ffcc0033;background:#ffcc0008;padding:10px 14px;margin-top:4px">
-          <div style="font-family:'VT323',monospace;font-size:1.1rem;color:#ffcc00;letter-spacing:2px">💰 WEEKLY PRIZE POOL</div>
-          <div style="font-size:0.65rem;color:#888;letter-spacing:1px;margin-top:4px;line-height:1.7">
-            Top DIAMOND players each week compete for TON prizes.<br>
-            Prizes distributed every Monday to top 3 on the leaderboard.<br>
-            <span style="color:#ffcc0066">Prize pool grows with the community. Check back soon.</span>
+        <div style="border:1px solid #ffcc0066;background:#ffcc0011;padding:14px;margin-top:4px;text-align:center">
+          <div style="font-family:'VT323',monospace;font-size:3rem;color:#ffcc00;text-shadow:0 0 20px #ffcc0088;line-height:1">5 TON</div>
+          <div style="font-family:'VT323',monospace;font-size:1.1rem;color:#ffcc00;letter-spacing:2px;margin-top:2px">🏆 DAILY PRIZE · #1 WINS</div>
+          <div style="font-size:0.65rem;color:#888;letter-spacing:1px;margin-top:6px;line-height:1.8">
+            Play the Daily Challenge · Finish #1 on the leaderboard<br>
+            Submit your TON wallet at the end of your run<br>
+            Prize sent within 24 hours · Every day
           </div>
         </div>
         <div style="border:1px solid #00ccff33;background:#00ccff08;padding:10px 14px">
@@ -1682,6 +1760,12 @@ async function gameOver() {
     if (dailyChallengesCompleted >= 7) unlockAchievement('daily_grinder');
     await submitDailyScore(finalDisplayScore);
     await submitScore(finalDisplayScore);
+    // Check if player is #1 — show prize claim flow
+    const isWinner = await checkIfDailyWinner(finalDisplayScore);
+    if (isWinner) {
+      setTimeout(() => showPrizeClaimModal(finalDisplayScore), 800);
+      return;
+    }
   } else {
     await submitScore(finalDisplayScore);
   }
