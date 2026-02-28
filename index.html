@@ -304,8 +304,9 @@ function seededRand() {
 }
 function gameRand() { return isDailyMode ? seededRand() : Math.random(); }
 function getDailyDateStr() {
-  const d = new Date();
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+  // Use Amsterdam time (UTC+1/UTC+2) so daily reset matches midnight Amsterdam
+  const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }));
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 function getDailyBaseSeed() {
   const d = new Date();
