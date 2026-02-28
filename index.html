@@ -76,6 +76,25 @@ function getACtx() {
   return actx;
 }
 
+// Telegram webview blocks audio — unlock on every touch/pointer event
+function unlockAudio() {
+  try {
+    if (!actx) actx = new AudioCtx();
+    if (actx.state === 'suspended') {
+      actx.resume().then(() => {
+        const buf = actx.createBuffer(1, 1, 22050);
+        const src = actx.createBufferSource();
+        src.buffer = buf;
+        src.connect(actx.destination);
+        src.start(0);
+      });
+    }
+  } catch(e) {}
+}
+['touchstart','touchend','pointerdown','click'].forEach(evt =>
+  document.addEventListener(evt, unlockAudio, { passive: true })
+);
+
 function playTone(freq, type, duration, vol, freqEnd) {
   try {
     const ac = getACtx();
