@@ -129,6 +129,7 @@ canvas { display: block; width: 100%; background: #050000; }
         <button class="btn" style="font-size:2.2rem;padding:10px 0;width:82%;max-width:300px;letter-spacing:6px" onclick="startGame(false)">[ PLAY ]</button>
         <button class="btn btn-daily" style="width:65%;max-width:240px;font-size:1.3rem;padding:6px 0" onclick="startGame(true)">[ DAILY CHALLENGE ]</button>
         <div style="display:flex;align-items:center;gap:6px;background:#ffcc0008;border:1px solid #ffcc0033;padding:4px 14px;font-family:'VT323',monospace;font-size:0.95rem;color:#ffcc00aa;letter-spacing:2px;cursor:pointer" onclick="showPrizes()">🏆 <span style="color:#ffcc00">5 TON</span> DAILY PRIZE · <span id="daily-countdown" style="color:#ffcc00bb">--:--:--</span></div>
+        <div id="tournament-banner" style="display:none;align-items:center;justify-content:space-between;gap:8px;background:#ffcc0011;border:1px solid #ffcc0055;padding:4px 14px;font-family:'VT323',monospace;font-size:0.9rem;color:#ffcc00;letter-spacing:1px;width:82%;max-width:300px"></div>
         <div id="streak-display"></div>
       </div>
       <div class="screen-bot">
@@ -458,6 +459,59 @@ function renderReferralDisplay() {
 const SUPABASE_URL  = 'https://rfixnwwzkvkzcfidjzer.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmaXhud3d6a3ZremNmaWRqemVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyNDI4MTYsImV4cCI6MjA4NzgxODgxNn0.PnaFSonJyViAFRmuclgWIcEaoLHltotbbFheMWDzS84';
 const SB_HEADERS = { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` };
+
+// ─── TOURNAMENT STATE ─────────────────────────────────────────────────────────
+let activeTournament = null;
+let myTournamentEntry = null;
+
+async function checkActiveTournament() {
+  try {
+    const r = await sbFetch('/rest/v1/tournaments?status=eq.active&limit=1');
+    if (!r.ok) return;
+    const rows = await r.json();
+    activeTournament = rows.length ? rows[0] : null;
+    if (activeTournament && TG_USER?.id) {
+      const er = await sbFetch(`/rest/v1/tournament_entries?tournament_id=eq.${activeTournament.id}&tg_id=eq.${TG_USER.id}&limit=1`);
+      if (er.ok) {
+        const entries = await er.json();
+        myTournamentEntry = entries.length ? entries[0] : null;
+      }
+    }
+    renderTournamentBanner();
+  } catch(e) {}
+}
+
+function renderTournamentBanner() {
+  const el = document.getElementById('tournament-banner');
+  if (!el) return;
+  if (!activeTournament) { el.style.display = 'none'; return; }
+  const endsIn = Math.max(0, Math.floor((new Date(activeTournament.ends_at) - Date.now()) / 60000));
+  const stars = activeTournament.total_stars || 0;
+  if (myTournamentEntry) {
+    el.style.display = 'flex';
+    el.innerHTML = `<span>🏆 TOURNAMENT ACTIVE · ${endsIn}min left · ${stars}⭐ pool</span><span style="color:#00ff66;font-size:0.7rem">✅ ENTERED</span>`;
+  } else {
+    el.style.display = 'flex';
+    el.innerHTML = `<span>🏆 TOURNAMENT · ${endsIn}min left · ${stars}⭐ pool</span><button onclick="joinTournament()" style="background:#ffcc00;color:#000;border:none;font-family:'VT323',monospace;font-size:1rem;padding:2px 10px;cursor:pointer">JOIN 5⭐</button>`;
+  }
+}
+
+function joinTournament() {
+  const tg = window.Telegram?.WebApp;
+  if (!tg) { alert('Open in Telegram to join!'); return; }
+  tg.openTelegramLink('https://t.me/NGMI_TON_BOT?start=join');
+}
+
+async function submitTournamentScore(score) {
+  if (!activeTournament || !myTournamentEntry) return;
+  try {
+    // Update score if better
+    if (score > (myTournamentEntry.score || 0)) {
+      await sbFetch(`/rest/v1/tournament_entries?id=eq.${myTournamentEntry.id}`, 'PATCH', { score });
+      myTournamentEntry.score = score;
+    }
+  } catch(e) {}
+}
 
 async function sbFetch(path, method='GET', body=null, extraHeaders={}) {
   const headers = { ...SB_HEADERS, ...extraHeaders };
@@ -1091,6 +1145,7 @@ function showStart() {
   renderReferralDisplay();
   startTitleAnimation();
   startDailyCountdown();
+  checkActiveTournament();
 }
 
 // ─── TITLE ANIMATION ─────────────────────────────────────────────────────────
@@ -1968,6 +2023,7 @@ async function gameOver() {
     if (dailyChallengesCompleted >= 7) unlockAchievement('daily_grinder');
     await submitDailyScore(finalDisplayScore);
     await submitScore(finalDisplayScore);
+    await submitTournamentScore(finalDisplayScore);
     // Check if player is #1 — show prize claim flow
     const isWinner = await checkIfDailyWinner(finalDisplayScore);
     if (isWinner) {
@@ -1977,6 +2033,7 @@ async function gameOver() {
   } else {
     await submitDailyScore(finalDisplayScore); // track all plays in daily board
     await submitScore(finalDisplayScore);
+    await submitTournamentScore(finalDisplayScore);
   }
 
   // Clan score contribution (non-blocking)
