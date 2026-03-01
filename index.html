@@ -117,6 +117,7 @@ canvas { display: block; width: 100%; background: #050000; }
   </div>
   <div id="canvas-wrap">
     <canvas id="c" width="700" height="300"></canvas>
+    <div id="tourney-hud" style="display:none;position:absolute;top:6px;left:6px;background:#00000099;border:1px solid #ffcc0066;padding:3px 8px;font-family:'VT323',monospace;font-size:0.85rem;color:#ffcc00;letter-spacing:1px;pointer-events:none;z-index:10"></div>
     <button id="mute-btn" onclick="toggleMute()" title="Mute/Unmute">🔊</button>
     <div id="overlay">
       <div class="screen-top">
@@ -482,19 +483,39 @@ async function checkActiveTournament() {
 }
 
 function renderTournamentBanner() {
+  // Home screen banner
   const el = document.getElementById('tournament-banner');
-  if (!el) return;
-  if (!activeTournament) { el.style.display = 'none'; return; }
-  const endsIn = Math.max(0, Math.floor((new Date(activeTournament.ends_at) - Date.now()) / 60000));
-  const stars = activeTournament.total_stars || 0;
-  if (myTournamentEntry) {
-    el.style.display = 'flex';
-    el.innerHTML = `<span>🏆 TOURNAMENT ACTIVE · ${endsIn}min left · ${stars}⭐ pool</span><span style="color:#00ff66;font-size:0.7rem">✅ ENTERED</span>`;
-  } else {
-    el.style.display = 'flex';
-    el.innerHTML = `<span>🏆 TOURNAMENT · ${endsIn}min left · ${stars}⭐ pool</span><button onclick="joinTournament()" style="background:#ffcc00;color:#000;border:none;font-family:'VT323',monospace;font-size:1rem;padding:2px 10px;cursor:pointer">JOIN 5⭐</button>`;
+  if (el) {
+    if (!activeTournament) { el.style.display = 'none'; }
+    else {
+      const endsIn = Math.max(0, Math.floor((new Date(activeTournament.ends_at) - Date.now()) / 60000));
+      const stars = activeTournament.total_stars || 0;
+      el.style.display = 'flex';
+      if (myTournamentEntry) {
+        el.innerHTML = `<span>🏆 TOURNAMENT · ${endsIn}min · ${stars}⭐</span><span style="color:#00ff66">✅ ENTERED</span>`;
+      } else {
+        el.innerHTML = `<span>🏆 TOURNAMENT · ${endsIn}min · ${stars}⭐</span><button onclick="joinTournament()" style="background:#ffcc00;color:#000;border:none;font-family:'VT323',monospace;font-size:1rem;padding:2px 10px;cursor:pointer">JOIN 5⭐</button>`;
+      }
+    }
+  }
+  // In-game HUD (top-left overlay on canvas)
+  const hud = document.getElementById('tourney-hud');
+  if (hud) {
+    if (!activeTournament || state !== 'playing') { hud.style.display = 'none'; }
+    else {
+      const endsIn = Math.max(0, Math.floor((new Date(activeTournament.ends_at) - Date.now()) / 60000));
+      hud.style.display = 'block';
+      if (myTournamentEntry) {
+        hud.textContent = `🏆 ${endsIn}m · MY BEST: ${myTournamentEntry.score || 0}`;
+      } else {
+        hud.textContent = `🏆 TOURNAMENT · /join to enter`;
+      }
+    }
   }
 }
+
+// Refresh tournament banner every 30s
+setInterval(renderTournamentBanner, 30000);
 
 function joinTournament() {
   const tg = window.Telegram?.WebApp;
