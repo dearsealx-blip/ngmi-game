@@ -1100,21 +1100,28 @@ function startTitleAnimation() {
   function animateTitleFrog() {
     const tc = document.getElementById('title-canvas');
     if (!tc) { titleAnimId = null; return; }
+    // HiDPI setup for title canvas
+    if (!tc._hdpi) {
+      const dpr = window.devicePixelRatio || 1;
+      tc.width = 100 * dpr; tc.height = 70 * dpr;
+      tc.style.width = '100px'; tc.style.height = '70px';
+      tc._hdpi = true;
+    }
+    const dpr = window.devicePixelRatio || 1;
     const tx = tc.getContext('2d');
-    tx.clearRect(0, 0, 100, 80);
+    tx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    tx.imageSmoothingEnabled = false;
+    tx.clearRect(0, 0, 100, 70);
     titleFrame++;
-    const bounce = Math.abs(Math.sin(titleFrame * 0.07)) * 28;
-    const ty = 50 - bounce;
-    const squishX = bounce < 3 ? 1.2 : 1.0;
-    const squishY = bounce < 3 ? 0.8 : 1.0;
+    const bounce = Math.abs(Math.sin(titleFrame * 0.07)) * 20;
+    const ty = 45 - bounce;
+    const squishX = bounce < 3 ? 1.15 : 1.0;
+    const squishY = bounce < 3 ? 0.85 : 1.0;
     const sk = getSkin();
     tx.save();
     tx.translate(50, ty);
-    tx.scale(squishX, squishY);
-    tx.font = '38px serif';
-    tx.textAlign = 'center';
-    tx.textBaseline = 'middle';
-    tx.fillText(sk.emoji, 0, 0);
+    tx.scale(squishX * 1.6, squishY * 1.6);
+    drawPixelFrog(tx, sk);
     tx.restore();
     titleAnimId = requestAnimationFrame(animateTitleFrog);
   }
@@ -1304,6 +1311,17 @@ function getDayNightColors() {
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const W=700, H=300, GROUND=H-56, GRAVITY=0.45, JUMP=-13;
+
+// ─── CRISP CANVAS (fixes blur on retina/HiDPI screens) ──────────────────────
+(function setupHiDPI() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(dpr, dpr);
+  ctx.imageSmoothingEnabled = false;
+})();
 
 let state='idle', score=0, frame=0, speed=4, combo=0;
 let chartPoints=[], chartOffset=0, bgOffset=0;
@@ -1550,6 +1568,93 @@ function spawnPowerup() {
 }
 
 // ─── DRAW FUNCTIONS ──────────────────────────────────────────────────────────
+// ─── SKIN COLOR PALETTES ─────────────────────────────────────────────────────
+const SKIN_PALETTES = {
+  0:  { body:'#22cc44', belly:'#88ffaa', eye:'#fff', pupil:'#111', accent:'#11aa33' }, // green frog
+  1:  { body:'#888',    belly:'#ccc',    eye:'#ff3300', pupil:'#000', accent:'#555' }, // skull
+  2:  { body:'#ff6600', belly:'#ffcc44', eye:'#fff', pupil:'#003', accent:'#cc4400' }, // moon boi
+  3:  { body:'#1144cc', belly:'#6699ff', eye:'#fff', pupil:'#001', accent:'#002299' }, // whale
+  4:  { body:'#00ccff', belly:'#aaeeff', eye:'#fff', pupil:'#004', accent:'#0099cc' }, // diamond
+  5:  { body:'#ffcc00', belly:'#fff7aa', eye:'#fff', pupil:'#220', accent:'#cc9900' }, // legend
+  6:  { body:'#ff7700', belly:'#ffcc88', eye:'#fff', pupil:'#200', accent:'#cc5500' }, // fox
+  7:  { body:'#aa44ff', belly:'#ddaaff', eye:'#00ffcc', pupil:'#000', accent:'#7700cc' }, // bot
+  8:  { body:'#ff2244', belly:'#ff8899', eye:'#fff', pupil:'#100', accent:'#cc0022' }, // chad
+  9:  { body:'#555',    belly:'#999',    eye:'#00ffcc', pupil:'#000', accent:'#333' }, // magnet
+  10: { body:'#220044', belly:'#7700cc', eye:'#ffcc00', pupil:'#000', accent:'#110022' }, // moonman
+};
+
+function drawPixelFrog(ctx, sk) {
+  const p = SKIN_PALETTES[sk.id] || SKIN_PALETTES[0];
+  const s = 1; // scale unit
+  // Body
+  ctx.fillStyle = p.body;
+  ctx.beginPath(); ctx.ellipse(0, 2, 13, 10, 0, 0, Math.PI*2); ctx.fill();
+  // Belly
+  ctx.fillStyle = p.belly;
+  ctx.beginPath(); ctx.ellipse(0, 4, 8, 6, 0, 0, Math.PI*2); ctx.fill();
+  // Head
+  ctx.fillStyle = p.body;
+  ctx.beginPath(); ctx.ellipse(0, -6, 11, 9, 0, 0, Math.PI*2); ctx.fill();
+  // Cheeks
+  ctx.fillStyle = p.accent;
+  ctx.beginPath(); ctx.ellipse(-9, -4, 4, 3, -0.3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(9, -4, 4, 3, 0.3, 0, Math.PI*2); ctx.fill();
+  // Eyes
+  ctx.fillStyle = p.eye;
+  ctx.beginPath(); ctx.arc(-6, -12, 5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(6, -12, 5, 0, Math.PI*2); ctx.fill();
+  // Eye outline
+  ctx.strokeStyle = p.accent; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(-6, -12, 5, 0, Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(6, -12, 5, 0, Math.PI*2); ctx.stroke();
+  // Pupils
+  ctx.fillStyle = p.pupil;
+  ctx.beginPath(); ctx.arc(-6, -12, 2.5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(6, -12, 2.5, 0, Math.PI*2); ctx.fill();
+  // Eye shine
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-5, -13, 1, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(7, -13, 1, 0, Math.PI*2); ctx.fill();
+  // Mouth
+  ctx.strokeStyle = p.accent; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0, -4, 5, 0.2, Math.PI-0.2); ctx.stroke();
+  // Legs (back)
+  ctx.fillStyle = p.accent;
+  ctx.beginPath(); ctx.ellipse(-11, 8, 5, 3, -0.5, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(11, 8, 5, 3, 0.5, 0, Math.PI*2); ctx.fill();
+  // Feet
+  ctx.fillStyle = p.body;
+  ctx.beginPath(); ctx.ellipse(-13, 11, 4, 2, -0.3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(13, 11, 4, 2, 0.3, 0, Math.PI*2); ctx.fill();
+}
+
+function drawPixelSkull(ctx, sk) {
+  const p = SKIN_PALETTES[sk.id] || SKIN_PALETTES[0];
+  // Skull head
+  ctx.fillStyle = '#eee';
+  ctx.beginPath(); ctx.ellipse(0, -4, 12, 13, 0, 0, Math.PI*2); ctx.fill();
+  // Jaw
+  ctx.fillStyle = '#ddd';
+  ctx.fillRect(-8, 4, 16, 8);
+  // Eye sockets
+  ctx.fillStyle = '#111';
+  ctx.beginPath(); ctx.ellipse(-5, -5, 4, 4.5, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(5, -5, 4, 4.5, 0, 0, Math.PI*2); ctx.fill();
+  // X eyes
+  ctx.strokeStyle = '#ff2200'; ctx.lineWidth = 2;
+  [[-5,-5],[5,-5]].forEach(([ex,ey])=>{
+    ctx.beginPath(); ctx.moveTo(ex-2.5,ey-2.5); ctx.lineTo(ex+2.5,ey+2.5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ex+2.5,ey-2.5); ctx.lineTo(ex-2.5,ey+2.5); ctx.stroke();
+  });
+  // Teeth
+  ctx.fillStyle = '#fff';
+  for(let i=-3;i<=3;i+=2){ ctx.fillRect(i*2-1, 5, 2, 5); }
+  // Nose holes
+  ctx.fillStyle = '#999';
+  ctx.beginPath(); ctx.ellipse(-2, 1, 1.5, 2, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(2, 1, 1.5, 2, 0, 0, Math.PI*2); ctx.fill();
+}
+
 function drawFrog(dead) {
   const sk = getSkin();
   const cx = frog.x + frog.w/2, cy = frog.y + frog.h/2;
@@ -1570,11 +1675,12 @@ function drawFrog(dead) {
   if (turboFrames > 0 && !dead) ctx.rotate(-0.2);
   const comboScale = 1 + Math.min(combo * 0.03, 0.3);
   ctx.scale(frogScale.x * comboScale, frogScale.y * comboScale);
-  ctx.font = '28px serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.globalAlpha = dead ? 0.5 : (ghostFrames > 0 ? 0.3 : 1);
-  ctx.fillText(dead ? '💀' : sk.emoji, 0, 0);
+  ctx.globalAlpha = dead ? 0.5 : (ghostFrames > 0 ? 0.25 : 1);
+  if (dead) {
+    drawPixelSkull(ctx, sk);
+  } else {
+    drawPixelFrog(ctx, sk);
+  }
   ctx.globalAlpha = 1;
   ctx.restore();
 }
@@ -1594,8 +1700,10 @@ function drawObstacle(o) {
   ctx.strokeStyle=c+'44'; ctx.lineWidth=3;
   for(let i=-o.h;i<o.w+o.h;i+=10){ctx.beginPath();ctx.moveTo(o.x+i,o.y);ctx.lineTo(o.x+i+o.h,o.y+o.h);ctx.stroke();}
   ctx.restore();
-  ctx.fillStyle=c; ctx.font=`bold ${o.isBoss?11:8}px "Share Tech Mono"`; ctx.textAlign='center';
-  ctx.fillText(lbls[o.type]||'RUG',o.x+o.w/2,o.y-4);
+  ctx.fillStyle=c; ctx.font=`bold ${o.isBoss?12:9}px "Share Tech Mono"`; ctx.textAlign='center';
+  ctx.shadowColor=c; ctx.shadowBlur=6;
+  ctx.fillText(lbls[o.type]||'RUG',o.x+o.w/2,o.y-5);
+  ctx.shadowBlur=0;
   // Special types
   if(o.type==='tweet'){ ctx.font='14px serif'; ctx.textAlign='center'; ctx.fillText('🐦', o.x+o.w/2, o.y+o.h/2+5); }
   if(o.type==='thread'){ ctx.fillStyle='#1da1f2'; ctx.fillRect(o.x,o.y+o.h-16,o.w,16); ctx.font='12px serif'; ctx.textAlign='center'; ctx.fillText('🐦', o.x+o.w/2, o.y+o.h-20); }
